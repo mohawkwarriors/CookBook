@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cookbook</title>
     <meta name="description" content="A highly polished culinary recipe book and weekly meal planning assistant. Includes automated recipe importing from URLs using server-side Gemini AI models, dynamic serving size scaling, and persistent Firestore storage." />
+    <script>
+      try {
+        const saved = localStorage.getItem("cookbook_theme");
+        if (saved === "dark" || (!saved && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -9,7 +9,7 @@ import {
   query, 
   orderBy 
 } from "firebase/firestore";
-import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
 import { db, auth } from "./lib/firebase";
 import { Recipe, MealPlanEntry, RecipeFilters } from "./types";
 import RecipeCard from "./components/RecipeCard";
@@ -187,34 +187,32 @@ export default function App() {
 
   const isAdmin = user && ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(user.email?.toLowerCase() || "");
 
-  const [clickCount, setClickCount] = useState(0);
-  const clickTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const clickCountRef = React.useRef(0);
+  const lastClickTimeRef = React.useRef(0);
 
   const handleHiddenLogin = () => {
-    setClickCount((prev) => {
-      const newCount = prev + 1;
-      if (newCount >= 3) {
-        // Trigger login
-        setAuthError(null);
-        if (user) {
-          signOut(auth).catch(err => console.error("Sign out failed:", err));
-        } else {
-          const provider = new GoogleAuthProvider();
-          provider.setCustomParameters({ prompt: 'select_account' });
-          signInWithRedirect(auth, provider).catch((error) => {
+    const now = Date.now();
+    if (now - lastClickTimeRef.current > 1000) {
+      clickCountRef.current = 0;
+    }
+    lastClickTimeRef.current = now;
+    clickCountRef.current += 1;
+
+    if (clickCountRef.current >= 3) {
+      clickCountRef.current = 0;
+      setAuthError(null);
+      if (user) {
+        signOut(auth).catch(err => console.error("Sign out failed:", err));
+      } else {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        signInWithPopup(auth, provider).catch((error) => {
+          if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
             console.error("Login failed:", error);
-          });
-        }
-        return 0;
+          }
+        });
       }
-      
-      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
-      clickTimeoutRef.current = setTimeout(() => {
-        setClickCount(0);
-      }, 1000);
-      
-      return newCount;
-    });
+    }
   };
 
   // Local Storage loaders (Fallback)

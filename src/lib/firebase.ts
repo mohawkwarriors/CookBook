@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
   projectId: "sanguine-spot-707pf",
@@ -17,3 +17,6 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore with the specific custom database ID provisioned
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+
+// Explicitly set persistence to local storage to ensure device login is remembered
+setPersistence(auth, browserLocalPersistence).catch(console.error);
