@@ -1,0 +1,8 @@
+{
+  "name": "Cookbook",
+  "description": "A highly polished culinary recipe book and weekly meal planning assistant. Includes automated recipe importing from URLs using server-side Gemini AI models, dynamic serving size scaling, and persistent Firestore storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
