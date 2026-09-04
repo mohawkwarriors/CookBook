@@ -30,7 +30,9 @@ import {
   X,
   Wand2,
   Moon,
-  Sun
+  Sun,
+  Lock,
+  LogOut
 } from "lucide-react";
 
 const INITIAL_FILTERS: RecipeFilters = {
@@ -187,32 +189,20 @@ export default function App() {
 
   const isAdmin = user && ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(user.email?.toLowerCase() || "");
 
-  const clickCountRef = React.useRef(0);
-  const lastClickTimeRef = React.useRef(0);
-
-  const handleHiddenLogin = () => {
-    const now = Date.now();
-    if (now - lastClickTimeRef.current > 1000) {
-      clickCountRef.current = 0;
-    }
-    lastClickTimeRef.current = now;
-    clickCountRef.current += 1;
-
-    if (clickCountRef.current >= 3) {
-      clickCountRef.current = 0;
-      setAuthError(null);
-      if (user) {
-        signOut(auth).catch(err => console.error("Sign out failed:", err));
-      } else {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        signInWithPopup(auth, provider).catch((error) => {
-          if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-            console.error("Login failed:", error);
-          }
-        });
+  const handleLogin = () => {
+    setAuthError(null);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    signInWithPopup(auth, provider).catch((error) => {
+      if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+        console.error("Login failed:", error);
+        setAuthError(`Login error: ${error.message}`);
       }
-    }
+    });
+  };
+
+  const handleLogout = () => {
+    signOut(auth).catch(err => console.error("Sign out failed:", err));
   };
 
   // Local Storage loaders (Fallback)
@@ -453,15 +443,32 @@ export default function App() {
           </div>
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-1.5 cursor-pointer select-none"
-            onClick={handleHiddenLogin}
-          >
+          <div className="flex items-center gap-1.5 select-none">
             <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50" />
             <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Cookbook</h1>
           </div>
           
           <div className="flex items-center gap-2 sm:gap-4">
+            {!user ? (
+              <button
+                onClick={handleLogin}
+                className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
+                aria-label="Admin Login"
+                title="Admin Login"
+              >
+                <Lock className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                onClick={handleLogout}
+                className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
+                aria-label="Sign Out"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
