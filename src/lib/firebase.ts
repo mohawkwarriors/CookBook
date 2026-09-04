@@ -3,19 +3,19 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
-  projectId: "sanguine-spot-707pf",
-  appId: "1:828985697135:web:c192cdde676699b3a3be9a",
-  apiKey: "AIzaSyCA87GNNcS01iK3uOclCfpNiuaRUpbaQJw",
-  authDomain: "sanguine-spot-707pf.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-9719adc6-2af1-4cef-bcc0-a2b3bbdc3441",
-  storageBucket: "sanguine-spot-707pf.firebasestorage.app",
-  messagingSenderId: "828985697135",
+  apiKey: "AIzaSyBpTROSdJqks5gs1BKm-3CV5jNjmD5oLTg",
+  authDomain: "cookbook-4b972.firebaseapp.com",
+  projectId: "cookbook-4b972",
+  storageBucket: "cookbook-4b972.firebasestorage.app",
+  messagingSenderId: "27985173135",
+  appId: "1:27985173135:web:82ea775c733100eddaaefa",
+  measurementId: "G-NDGN89RS58"
 };
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with the specific custom database ID provisioned
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firestore (default database for user-provided projects)
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 
 // Explicitly set persistence to local storage to ensure device login is remembered
