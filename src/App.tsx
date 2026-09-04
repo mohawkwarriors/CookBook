@@ -9,7 +9,7 @@ import {
   query, 
   orderBy 
 } from "firebase/firestore";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
+import { onAuthStateChanged, signInWithRedirect, GoogleAuthProvider, signOut, User } from "firebase/auth";
 import { db, auth } from "./lib/firebase";
 import { Recipe, MealPlanEntry, RecipeFilters } from "./types";
 import RecipeCard from "./components/RecipeCard";
@@ -187,19 +187,34 @@ export default function App() {
 
   const isAdmin = user && ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(user.email?.toLowerCase() || "");
 
+  const [clickCount, setClickCount] = useState(0);
+  const clickTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
   const handleHiddenLogin = () => {
-    setAuthError(null);
-    if (user) {
-      signOut(auth).catch(err => console.error("Sign out failed:", err));
-    } else {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      signInWithPopup(auth, provider).catch((error) => {
-        if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-          console.error("Login failed:", error);
+    setClickCount((prev) => {
+      const newCount = prev + 1;
+      if (newCount >= 3) {
+        // Trigger login
+        setAuthError(null);
+        if (user) {
+          signOut(auth).catch(err => console.error("Sign out failed:", err));
+        } else {
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          signInWithRedirect(auth, provider).catch((error) => {
+            console.error("Login failed:", error);
+          });
         }
-      });
-    }
+        return 0;
+      }
+      
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = setTimeout(() => {
+        setClickCount(0);
+      }, 1000);
+      
+      return newCount;
+    });
   };
 
   // Local Storage loaders (Fallback)
@@ -441,8 +456,8 @@ export default function App() {
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div 
-            className="flex items-center gap-1.5 cursor-pointer"
-            onDoubleClick={handleHiddenLogin}
+            className="flex items-center gap-1.5 cursor-pointer select-none"
+            onClick={handleHiddenLogin}
           >
             <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50" />
             <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Cookbook</h1>
