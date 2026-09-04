@@ -176,9 +176,7 @@ export default function App() {
 
   const handleHiddenLogin = () => {
     if (user) {
-      if (window.confirm(`Sign out of ${user.email}?`)) {
-        signOut(auth);
-      }
+      signOut(auth).catch(err => console.error("Sign out failed:", err));
     } else {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
@@ -395,7 +393,7 @@ export default function App() {
       setActiveRecipe(found);
       setIsDetailOpen(true);
     } else {
-      alert("Recipe details could not be found. It might have been deleted.");
+      console.warn("Recipe details could not be found. It might have been deleted.");
     }
   };
 

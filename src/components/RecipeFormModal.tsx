@@ -35,6 +35,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   const [imageUrl, setImageUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Populate form if editing
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       setActiveTab("search");
     }
     setScrapeError(null);
+    setFormError(null);
   }, [editingRecipe]);
 
   const handleSelectTopRecipe = (topRecipe: TopRatedRecipe) => {
@@ -254,12 +256,14 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       .filter((i) => i && i.trim() !== "")
       .map((i) => i.trim());
 
+    setFormError(null);
+
     if (filteredIngredients.length === 0) {
-      alert("Please add at least one ingredient.");
+      setFormError("Please add at least one ingredient.");
       return;
     }
     if (filteredInstructions.length === 0) {
-      alert("Please add at least one instruction step.");
+      setFormError("Please add at least one instruction step.");
       return;
     }
 
@@ -283,7 +287,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       onClose();
     } catch (err) {
       console.error("Error saving recipe:", err);
-      alert("Failed to save recipe. Please try again.");
+      setFormError("Failed to save recipe. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -713,6 +717,12 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 className="w-full px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
               />
             </div>
+
+            {formError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
+                {formError}
+              </div>
+            )}
 
             {/* Save Buttons - Stacked on Mobile with Thumb-Friendly Tap Targets */}
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-4 border-t border-neutral-150 dark:border-neutral-800">

@@ -103,7 +103,6 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
       setTimeout(() => setPlannedSuccess(false), 3000);
     } catch (err) {
       console.error("Error adding to meal plan:", err);
-      alert("Could not plan this meal. Please check network connection.");
     } finally {
       setIsPlanning(false);
     }
