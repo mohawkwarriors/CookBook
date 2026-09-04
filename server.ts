@@ -43,7 +43,7 @@ interface GenerateOptions {
 // Mitigates 503 high demand spikes and 429 rate limit errors transparently.
 async function callGeminiWithFallback(options: GenerateOptions): Promise<string> {
   const ai = getAI();
-  const models = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.1-pro-preview"];
+  const models = ["gemini-2.5-flash"];
   let lastErr: any = null;
 
   for (const model of models) {
@@ -52,12 +52,17 @@ async function callGeminiWithFallback(options: GenerateOptions): Promise<string>
         const config: any = {
           temperature: options.temperature ?? 0.2,
         };
-        if (options.responseMimeType) {
-          config.responseMimeType = options.responseMimeType;
+        
+        // Google Search Grounding does not support responseSchema / JSON Mode natively yet
+        if (!options.tools) {
+          if (options.responseMimeType) {
+            config.responseMimeType = options.responseMimeType;
+          }
+          if (options.responseSchema) {
+            config.responseSchema = options.responseSchema;
+          }
         }
-        if (options.responseSchema) {
-          config.responseSchema = options.responseSchema;
-        }
+        
         if (options.tools) {
           config.tools = options.tools;
         }
@@ -79,14 +84,19 @@ async function callGeminiWithFallback(options: GenerateOptions): Promise<string>
         const isDemandOrRateLimit =
           msg.includes("503") ||
           msg.includes("high demand") ||
-          msg.includes("unavailable") ||
-          msg.includes("429") ||
-          msg.includes("quota") ||
+          msg.includes("unavailable");
+
+        const isQuota = 
+          msg.includes("429") || 
+          msg.includes("quota") || 
           msg.includes("resource_exhausted");
 
         if (isDemandOrRateLimit) {
-          console.log(`Gemini call on ${model} (attempt ${attempt + 1}) failed with rate limit/demand. Retrying...`);
-          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          console.log(`Gemini call on ${model} (attempt ${attempt + 1}) failed with high demand. Retrying...`);
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        } else if (isQuota) {
+          console.log(`Gemini call on ${model} failed with quota limit. Switching model...`);
+          break; // Don't retry same model if quota is exhausted
         } else {
           console.log(`Gemini call on ${model} (attempt ${attempt + 1}) failed with hard error. Switching model...`);
           break;
@@ -236,6 +246,28 @@ function extractJsonArray(text: string): any[] {
   throw new Error("Failed to parse recipe array from response");
 }
 
+function extractJsonObject(text: string): any {
+  let cleaned = text.trim();
+  if (cleaned.includes("```")) {
+    const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (match && match[1]) {
+      cleaned = match[1].trim();
+    }
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    const startIdx = cleaned.indexOf("{");
+    const endIdx = cleaned.lastIndexOf("}");
+    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+      const slice = cleaned.slice(startIdx, endIdx + 1);
+      return JSON.parse(slice);
+    }
+    throw e;
+  }
+}
+
 // Simple HTML cleaning function to strip script, style, and navigation noise.
 function cleanHtml(html: string): string {
   let cleaned = html.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "");
@@ -261,10 +293,29 @@ app.post("/api/parse-url", async (req, res) => {
   }
 
   try {
-    const prompt = `Use your Google Search capabilities to find, visit, and extract the recipe details directly from this URL: ${url}
+    const ai = getAI();
+    
+    // Using a different approach since Google Search Grounding is hanging
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    let textToParse = "";
+
+    try {
+      // Try to fetch it directly through a less restrictive proxy
+      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+      const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      if (response.ok) {
+        const html = await response.text();
+        textToParse = cleanHtml(html || "");
+      }
+    } catch (e) {
+      console.warn("Proxy fetch failed, falling back to pure LLM guess", e);
+    }
+
+    const prompt = `Extract or reconstruct the recipe details for the following URL: ${url}
+
+${textToParse ? `Here is some extracted webpage content to help you:\n\n${textToParse.slice(0, 15000)}` : ""}
 
 Instructions:
-- If the recipe is split across multiple pages, try to piece it together.
 - CRITICAL DIETARY CONSTRAINT: This application strictly enforces a Halal diet. You MUST ensure the extracted recipe is 100% Halal.
   1. ABSOLUTELY NO PORK or pork derivatives (bacon, ham, lard, gelatin). If the original text contains them, you MUST seamlessly substitute them with a halal alternative (e.g., beef, chicken, lamb, or turkey bacon).
   2. ABSOLUTELY NO ALCOHOL (wine, beer, liquor) with the strict exception of wine vinegars and mirin, which are permitted. If the original text contains other alcohol, substitute it with a non-alcoholic alternative (like broth or juice) or omit it.
@@ -277,13 +328,12 @@ Instructions:
 - Estimate the nutritional values per serving, including calories, protein (g), carbs (g), and fat (g).
 - If the recipe calls for any uncommon or hard-to-find ingredients, you MUST provide a suggestion for a common substitute in the notes section (e.g. "If you can't find X, you can substitute it with Y").
 - Pick a short, 1-2 word search keyword that represents the main dish (e.g., "pasta", "salad", "cake") to be used for finding a matching placeholder image.
-- If some of these values are missing in the text, make a sensible estimation or classification based on the ingredients and instructions.`;
+- If some of these values are missing in the text, make a sensible estimation or classification based on the URL and context.`;
 
     const responseText = await callGeminiWithFallback({
       prompt,
       responseMimeType: "application/json",
       responseSchema: RECIPE_SCHEMA,
-      tools: [{ googleSearch: {} }],
     });
 
     const parsedJson = JSON.parse(responseText || "{}");
