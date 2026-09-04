@@ -163,10 +163,23 @@ export default function App() {
   // Auth State
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+      if (u) {
+        const uIsAdmin = ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(u.email?.toLowerCase() || "");
+        if (!uIsAdmin) {
+          signOut(auth).catch(console.error);
+          setAuthError("Unauthorized user. You do not have permission to access this application.");
+          setUser(null);
+        } else {
+          setUser(u);
+          setAuthError(null);
+        }
+      } else {
+        setUser(null);
+      }
       setAuthLoading(false);
     });
     return () => unsubscribe();
@@ -175,13 +188,14 @@ export default function App() {
   const isAdmin = user && ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(user.email?.toLowerCase() || "");
 
   const handleHiddenLogin = () => {
+    setAuthError(null);
     if (user) {
       signOut(auth).catch(err => console.error("Sign out failed:", err));
     } else {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       signInWithPopup(auth, provider).catch((error) => {
-        if (error.code !== 'auth/popup-closed-by-user') {
+        if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
           console.error("Login failed:", error);
         }
       });
@@ -417,6 +431,14 @@ export default function App() {
       
       {/* Simple Clean Header */}
       <header className="border-b border-neutral-100 dark:border-neutral-700 bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
+        {authError && (
+          <div className="w-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-4 py-2 text-sm text-center font-medium border-b border-red-200 dark:border-red-800 flex items-center justify-between">
+            <span>{authError}</span>
+            <button onClick={() => setAuthError(null)} className="p-1 hover:bg-red-200 dark:hover:bg-red-800/50 rounded-full cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div 
             className="flex items-center gap-1.5 cursor-pointer"
