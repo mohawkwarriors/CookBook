@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBpTROSdJqks5gs1BKm-3CV5jNjmD5oLTg",
@@ -16,7 +15,3 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore (default database for user-provided projects)
 export const db = getFirestore(app);
-export const auth = getAuth(app);
-
-// Explicitly set persistence to local storage to ensure device login is remembered
-setPersistence(auth, browserLocalPersistence).catch(console.error);

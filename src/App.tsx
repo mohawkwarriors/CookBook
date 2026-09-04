@@ -9,8 +9,7 @@ import {
   query, 
   orderBy 
 } from "firebase/firestore";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User } from "firebase/auth";
-import { db, auth } from "./lib/firebase";
+import { db } from "./lib/firebase";
 import { Recipe, MealPlanEntry, RecipeFilters } from "./types";
 import RecipeCard from "./components/RecipeCard";
 import RecipeModal from "./components/RecipeModal";
@@ -159,50 +158,36 @@ export default function App() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [activeRecipe, setActiveRecipe] = useState<Recipe | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [passcode, setPasscode] = useState("");
 
   // Auth State
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(localStorage.getItem('cookbook_admin') === 'true');
   const [authError, setAuthError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        const uIsAdmin = ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(u.email?.toLowerCase() || "");
-        if (!uIsAdmin) {
-          signOut(auth).catch(console.error);
-          setAuthError("Unauthorized user. You do not have permission to access this application.");
-          setUser(null);
-        } else {
-          setUser(u);
-          setAuthError(null);
-        }
-      } else {
-        setUser(null);
-      }
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const isAdmin = user && ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(user.email?.toLowerCase() || "");
-
   const [dbError, setDbError] = useState<string | null>(null);
 
   const handleLogin = () => {
     setAuthError(null);
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    signInWithPopup(auth, provider).catch((error) => {
-      if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-        console.error("Login failed:", error);
-        setAuthError(`Login error: ${error.message}`);
-      }
-    });
+    setIsLoginModalOpen(true);
+  };
+
+  const submitPasscode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passcode.toLowerCase() === "yes chef") {
+      localStorage.setItem('cookbook_admin', 'true');
+      setIsAdmin(true);
+      setDbError(null);
+      setIsLoginModalOpen(false);
+      setPasscode("");
+      setAuthError(null);
+    } else {
+      setAuthError("Incorrect passcode.");
+    }
   };
 
   const handleLogout = () => {
-    signOut(auth).catch(err => console.error("Sign out failed:", err));
+    localStorage.removeItem('cookbook_admin');
+    setIsAdmin(false);
   };
 
   // Local Storage loaders (Fallback)
@@ -469,8 +454,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div 
             className="flex items-center gap-1.5 select-none cursor-pointer"
-            onDoubleClick={user ? handleLogout : handleLogin}
-            title={user ? "Double click to sign out" : "Double click to sign in"}
+            onDoubleClick={isAdmin ? handleLogout : handleLogin}
+            title={isAdmin ? "Double click to sign out" : "Double click to sign in"}
           >
             <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50" />
             <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Cookbook</h1>
@@ -749,6 +734,48 @@ export default function App() {
             <Calendar className="w-5 h-5" />
             <span className="text-xs font-semibold tracking-wide">Planner</span>
           </button>
+        </div>
+      )}
+
+      {/* Login Modal */}
+      {isLoginModalOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">Admin Login</h3>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter the secret passcode to unlock edit features.</p>
+              
+              <form onSubmit={submitPasscode}>
+                <input 
+                  type="password"
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value)}
+                  placeholder="Enter passcode..."
+                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 mb-4"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsLoginModalOpen(false);
+                      setPasscode("");
+                      setAuthError(null);
+                    }}
+                    className="px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white transition-colors font-medium"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
 
