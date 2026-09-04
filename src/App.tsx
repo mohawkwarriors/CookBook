@@ -30,9 +30,7 @@ import {
   X,
   Wand2,
   Moon,
-  Sun,
-  Lock,
-  LogOut
+  Sun
 } from "lucide-react";
 
 const INITIAL_FILTERS: RecipeFilters = {
@@ -189,6 +187,8 @@ export default function App() {
 
   const isAdmin = user && ["saahiressa@gmail.com", "yasmeenb518@gmail.com"].includes(user.email?.toLowerCase() || "");
 
+  const [dbError, setDbError] = useState<string | null>(null);
+
   const handleLogin = () => {
     setAuthError(null);
     const provider = new GoogleAuthProvider();
@@ -254,34 +254,49 @@ export default function App() {
             list.push({ id: doc.id, ...doc.data() } as Recipe);
           });
           
-          if (list.length === 0) {
+          if (list.length === 0 && isAdmin) {
             // Seed presets to Firestore if empty so the database looks gorgeous immediately!
             PRESET_RECIPES.forEach(async (p) => {
               const { id, ...cleanPreset } = p;
-              await addDoc(collection(db, "recipes"), {
-                ...cleanPreset,
-                createdAt: new Date().toISOString(),
-              });
+              try {
+                await addDoc(collection(db, "recipes"), {
+                  ...cleanPreset,
+                  createdAt: new Date().toISOString(),
+                });
+              } catch (e: any) {
+                if (e?.code === 'permission-denied') {
+                  setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
+                }
+              }
             });
-          } else {
+          } else if (list.length > 0) {
             // Strip out AI generated images so we fall back to icons
             list.forEach(async (r) => {
               if (r.imageUrl && (r.imageUrl.includes("pollinations.ai") || r.imageUrl.includes("unsplash.com") || r.imageUrl.includes("loremflickr.com") || r.imageUrl.includes("picsum.photos"))) {
                 r.imageUrl = ""; // Mutate locally
-                try {
-                  await updateDoc(doc(db, "recipes", r.id!), { imageUrl: "" });
-                } catch (e) {
-                  console.error("Failed to clear image for", r.title);
+                if (isAdmin) {
+                  try {
+                    await updateDoc(doc(db, "recipes", r.id!), { imageUrl: "" });
+                  } catch (e: any) {
+                    if (e?.code === 'permission-denied') {
+                      setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
+                    }
+                  }
                 }
               }
             });
-            setRecipes(list);
-            setLoadingRecipes(false);
-            setIsUsingLocalStorage(false);
           }
+          setRecipes(list);
+          setLoadingRecipes(false);
+          setIsUsingLocalStorage(false);
+          setDbError(null);
         },
-        (error) => {
-          console.warn("Firestore recipes listener failed, using local storage:", error);
+        (error: any) => {
+          if (error?.code === 'permission-denied') {
+            setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
+          } else {
+            console.warn("Firestore recipes listener failed, using local storage:", error);
+          }
           loadRecipesFromLocalStorage();
         }
       );
@@ -297,8 +312,12 @@ export default function App() {
           setMealPlan(list);
           setLoadingMeals(false);
         },
-        (error) => {
-          console.warn("Firestore mealPlan listener failed, using local storage:", error);
+        (error: any) => {
+          if (error?.code === 'permission-denied') {
+            setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
+          } else {
+            console.warn("Firestore mealPlan listener failed, using local storage:", error);
+          }
           loadMealsFromLocalStorage();
         }
       );
@@ -434,6 +453,11 @@ export default function App() {
       
       {/* Simple Clean Header */}
       <header className="border-b border-neutral-100 dark:border-neutral-700 bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
+        {dbError && (
+          <div className="w-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-4 py-2 text-sm text-center font-medium border-b border-orange-200 dark:border-orange-800/50">
+            {dbError} <a href="https://console.firebase.google.com/project/cookbook-4b972/firestore/rules" target="_blank" rel="noreferrer" className="underline font-bold ml-2">Open Rules</a>
+          </div>
+        )}
         {authError && (
           <div className="w-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-4 py-2 text-sm text-center font-medium border-b border-red-200 dark:border-red-800 flex items-center justify-between">
             <span>{authError}</span>
@@ -443,32 +467,16 @@ export default function App() {
           </div>
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 select-none">
+          <div 
+            className="flex items-center gap-1.5 select-none cursor-pointer"
+            onDoubleClick={user ? handleLogout : handleLogin}
+            title={user ? "Double click to sign out" : "Double click to sign in"}
+          >
             <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50" />
             <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Cookbook</h1>
           </div>
           
           <div className="flex items-center gap-2 sm:gap-4">
-            {!user ? (
-              <button
-                onClick={handleLogin}
-                className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
-                aria-label="Admin Login"
-                title="Admin Login"
-              >
-                <Lock className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={handleLogout}
-                className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
-                aria-label="Sign Out"
-                title="Sign Out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            )}
-
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
