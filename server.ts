@@ -36,6 +36,7 @@ interface GenerateOptions {
   responseMimeType?: string;
   responseSchema?: any;
   temperature?: number;
+  tools?: any[];
 }
 
 // Resilient Gemini caller with automatic multi-model fallback and retry logic.
@@ -56,6 +57,9 @@ async function callGeminiWithFallback(options: GenerateOptions): Promise<string>
         }
         if (options.responseSchema) {
           config.responseSchema = options.responseSchema;
+        }
+        if (options.tools) {
+          config.tools = options.tools;
         }
 
         const res = await ai.models.generateContent({
@@ -257,32 +261,10 @@ app.post("/api/parse-url", async (req, res) => {
   }
 
   try {
-    // 1. Fetch the HTML content
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-      },
-    });
-
-    if (!response.ok) {
-      res.status(response.status).json({ error: `Failed to fetch webpage. Server returned code ${response.status}` });
-      return;
-    }
-
-    const htmlContent = await response.text();
-    const cleanedText = cleanHtml(htmlContent);
-
-    // 2. Initialize Gemini AI
-    const ai = getAI();
-
-    // 3. Prompt Gemini to parse structured recipe content
-    const prompt = `Analyze the following webpage content and extract the recipe details into a structured JSON format. 
-
-Webpage Content:
-${cleanedText}
+    const prompt = `Use your Google Search capabilities to find, visit, and extract the recipe details directly from this URL: ${url}
 
 Instructions:
+- If the recipe is split across multiple pages, try to piece it together.
 - CRITICAL DIETARY CONSTRAINT: This application strictly enforces a Halal diet. You MUST ensure the extracted recipe is 100% Halal.
   1. ABSOLUTELY NO PORK or pork derivatives (bacon, ham, lard, gelatin). If the original text contains them, you MUST seamlessly substitute them with a halal alternative (e.g., beef, chicken, lamb, or turkey bacon).
   2. ABSOLUTELY NO ALCOHOL (wine, beer, liquor) with the strict exception of wine vinegars and mirin, which are permitted. If the original text contains other alcohol, substitute it with a non-alcoholic alternative (like broth or juice) or omit it.
@@ -301,6 +283,7 @@ Instructions:
       prompt,
       responseMimeType: "application/json",
       responseSchema: RECIPE_SCHEMA,
+      tools: [{ googleSearch: {} }],
     });
 
     const parsedJson = JSON.parse(responseText || "{}");
