@@ -99,7 +99,7 @@ export default function InstructionStep({ step, idx, isCompleted, isParallel, on
       {/* Centered Node */}
       <div className={`w-8 h-8 rounded-full border-[4px] border-white dark:border-neutral-900 flex items-center justify-center transition-colors relative z-10 mb-3 ${
         isCompleted 
-          ? "bg-green-500 text-white dark:border-neutral-900" 
+          ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 dark:border-neutral-900" 
           : "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50"
       }`}>
         {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <span className="text-xs font-bold">{idx + 1}</span>}
@@ -155,7 +155,7 @@ export default function InstructionStep({ step, idx, isCompleted, isParallel, on
                   ) : timeLeft > 0 && timeLeft !== initialTime ? (
                     <button 
                       onClick={handleStart}
-                      className="p-2 rounded-lg text-green-600 hover:bg-green-100 dark:text-green-500 dark:hover:bg-green-900/30 transition-colors"
+                      className="p-2 rounded-lg text-accent-600 hover:bg-accent-100 dark:text-accent-500 dark:hover:bg-accent-900/30 transition-colors"
                       title="Resume"
                     >
                       <Play className="w-5 h-5 fill-current" />

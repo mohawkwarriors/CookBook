@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { X, Clock, ChefHat, Users, Printer, Calendar, Edit2, Trash2, Minus, Plus, ListChecks, Check, ChevronDown, Activity } from "lucide-react";
+import { X, Clock, ChefHat, Users, Printer, Calendar, Edit2, Trash2, Minus, Plus, ListChecks, Check, ChevronDown, Activity, UtensilsCrossed } from "lucide-react";
 import { Recipe, MealPlanEntry } from "../types";
 import InstructionStep from "./InstructionStep";
 import RecipeIcon from "./RecipeIcon";
+import CookingMode from "./CookingMode";
 import { formatTime } from "../lib/utils";
 
 interface RecipeModalProps {
@@ -52,6 +53,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   const [plannedSuccess, setPlannedSuccess] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [completedIngredients, setCompletedIngredients] = useState<Set<number>>(new Set());
+  const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
 
   // Initialize servings and dates
   useEffect(() => {
@@ -64,6 +66,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
       setShowDeleteConfirm(false);
       setCompletedSteps(new Set());
       setCompletedIngredients(new Set());
+      setIsCookingModeOpen(false);
     }
   }, [recipe, isOpen]);
 
@@ -139,6 +142,17 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
         {/* Header Block */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-neutral-700 print:hidden">
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1.5 select-none cursor-pointer text-left focus:outline-none group bg-transparent border-0 p-0"
+              title="Back to recipes"
+              aria-label="Cookbook - Back to recipes"
+            >
+              <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors" />
+              <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors">Cookbook</span>
+            </button>
+            <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
             {recipe.mealType && (
               <span className={`text-xs uppercase tracking-wider font-bold px-2 py-0.5 rounded-full shrink-0 ${getMealTypeColor(recipe.mealType)}`}>
                 {recipe.mealType}
@@ -146,6 +160,16 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsCookingModeOpen(true)}
+              className="px-3 py-1.5 bg-accent-500 hover:bg-accent-600 dark:bg-accent-600 dark:hover:bg-accent-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+              title="Start Full-Screen Cooking Mode"
+            >
+              <ChefHat className="w-3.5 h-3.5" />
+              <span>Cooking Mode</span>
+            </button>
+            <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
             {isAdmin && (
               <>
                 <button
@@ -274,7 +298,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
                     >
                       <div className="flex items-center gap-2 md:gap-3">
                         <div className={`w-4 h-4 md:w-5 md:h-5 shrink-0 rounded-full flex items-center justify-center border md:border-2 transition-colors ${
-                          isCompleted ? "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
+                          isCompleted ? "bg-accent-100 dark:bg-accent-900/30 border-accent-200 dark:border-accent-800 text-accent-700 dark:text-accent-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
                         }`}>
                           <Check className="w-2.5 h-2.5 md:w-3 md:h-3" strokeWidth={3} />
                         </div>
@@ -293,9 +317,20 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
 
             {/* Instructions */}
             <div className="md:col-span-3 space-y-6">
-              <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest">
-                Instructions
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest">
+                  Instructions
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsCookingModeOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-50 dark:bg-accent-950/40 text-accent-700 dark:text-accent-400 border border-accent-200 dark:border-accent-800 rounded-lg text-xs font-semibold hover:bg-accent-100 dark:hover:bg-accent-900/40 transition-colors active:scale-95 cursor-pointer"
+                  title="Open Step-by-Step Cooking Mode"
+                >
+                  <ChefHat className="w-3.5 h-3.5" />
+                  <span>Cooking Mode</span>
+                </button>
+              </div>
               
               <div className="relative pb-4">
                 {(() => {
@@ -524,15 +559,48 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
           <p className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
             Original: {recipe.servings}s
           </p>
-          <button
-            onClick={handlePrint}
-            className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1.5 transition-colors"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            Print
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsCookingModeOpen(true)}
+              className="text-xs font-medium text-accent-600 dark:text-accent-400 hover:underline flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <ChefHat className="w-3.5 h-3.5" />
+              Cooking Mode
+            </button>
+            <span className="text-neutral-300 dark:text-neutral-700">•</span>
+            <button
+              onClick={handlePrint}
+              className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1.5 transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Print
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Step-by-Step Full-Screen Cooking Mode */}
+      <CookingMode
+        recipe={recipe}
+        servings={servings}
+        isOpen={isCookingModeOpen}
+        completedSteps={completedSteps}
+        completedIngredients={completedIngredients}
+        onToggleStepComplete={(stepIdx) => {
+          const newSet = new Set(completedSteps);
+          if (newSet.has(stepIdx)) newSet.delete(stepIdx);
+          else newSet.add(stepIdx);
+          setCompletedSteps(newSet);
+        }}
+        onToggleIngredientComplete={(ingIdx) => {
+          const newSet = new Set(completedIngredients);
+          if (newSet.has(ingIdx)) newSet.delete(ingIdx);
+          else newSet.add(ingIdx);
+          setCompletedIngredients(newSet);
+        }}
+        onClose={() => setIsCookingModeOpen(false)}
+      />
     </div>
   );
 }

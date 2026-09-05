@@ -43,7 +43,7 @@ interface GenerateOptions {
 // Mitigates 503 high demand spikes and 429 rate limit errors transparently.
 async function callGeminiWithFallback(options: GenerateOptions): Promise<string> {
   const ai = getAI();
-  const models = ["gemini-2.5-flash"];
+  const models = ["gemini-3.6-flash", "gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview", "gemini-2.5-flash"];
   let lastErr: any = null;
 
   for (const model of models) {
@@ -293,27 +293,26 @@ app.post("/api/parse-url", async (req, res) => {
   }
 
   try {
-    const ai = getAI();
-    
-    // Using a different approach since Google Search Grounding is hanging
     const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
     let textToParse = "";
 
     try {
-      // Try to fetch it directly through a less restrictive proxy
-      const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const response = await fetch(proxyUrl, { signal: controller.signal });
+      
       if (response.ok) {
-        const html = await response.text();
-        textToParse = cleanHtml(html || "");
+        const json = await response.json();
+        textToParse = cleanHtml(json.contents || "");
       }
+      clearTimeout(timeoutId);
     } catch (e) {
-      console.warn("Proxy fetch failed, falling back to pure LLM guess", e);
+      console.warn("Proxy fetch failed or timed out, relying on LLM knowledge base.");
     }
 
     const prompt = `Extract or reconstruct the recipe details for the following URL: ${url}
 
-${textToParse ? `Here is some extracted webpage content to help you:\n\n${textToParse.slice(0, 15000)}` : ""}
+${textToParse ? `Here is some extracted webpage content to help you:\n\n${textToParse.slice(0, 15000)}` : "Use your internal knowledge base to reconstruct the recipe based on the URL."}
 
 Instructions:
 - CRITICAL DIETARY CONSTRAINT: This application strictly enforces a Halal diet. You MUST ensure the extracted recipe is 100% Halal.
@@ -328,15 +327,16 @@ Instructions:
 - Estimate the nutritional values per serving, including calories, protein (g), carbs (g), and fat (g).
 - If the recipe calls for any uncommon or hard-to-find ingredients, you MUST provide a suggestion for a common substitute in the notes section (e.g. "If you can't find X, you can substitute it with Y").
 - Pick a short, 1-2 word search keyword that represents the main dish (e.g., "pasta", "salad", "cake") to be used for finding a matching placeholder image.
-- If some of these values are missing in the text, make a sensible estimation or classification based on the URL and context.`;
+- If some of these values are missing in the text, make a sensible estimation or classification based on the URL and context.
+
+OUTPUT FORMAT:
+Provide your response strictly as a single JSON object inside a \`\`\`json code block. Do not include any other text.`;
 
     const responseText = await callGeminiWithFallback({
       prompt,
-      responseMimeType: "application/json",
-      responseSchema: RECIPE_SCHEMA,
     });
 
-    const parsedJson = JSON.parse(responseText || "{}");
+    const parsedJson = extractJsonObject(responseText);
     
     // Automatically assign a matching drawn vector image
     if (parsedJson.imageKeyword) {

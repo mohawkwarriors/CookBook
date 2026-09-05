@@ -1,5 +1,6 @@
 import TopRatedSearchCard from "./TopRatedSearchCard";
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import { 
   Search, 
   Sparkles, 
@@ -24,6 +25,29 @@ interface TopRatedSearchProps {
   onSelectRecipe: (recipe: TopRatedRecipe) => void;
   onQuickSave: (recipe: TopRatedRecipe) => Promise<void>;
 }
+
+const listContainerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.35,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 const AUTO_RECOMMENDATIONS: TopRatedRecipe[] = [
   {
@@ -363,7 +387,13 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
             <span className="shrink-0">Ranked by rating</span>
           </div>
 
-          <div className="space-y-3.5">
+          <motion.div 
+            key={`results-${query}-${hasSearched ? 'searched' : 'auto'}-${recipes.length}`}
+            variants={listContainerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-3.5"
+          >
             {recipes.map((recipe, index) => {
               const recipeId = recipe.id || String(index + 1);
               const isExpanded = expandedRecipeId === recipeId;
@@ -371,20 +401,21 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
               const isSavedThis = savedSuccessId === recipeId;
 
               return (
-                <TopRatedSearchCard
-                  key={recipeId}
-                  recipe={recipe}
-                  index={index}
-                  isExpanded={isExpanded}
-                  isSavingThis={isSavingThis}
-                  isSavedThis={isSavedThis}
-                  onExpand={() => setExpandedRecipeId(isExpanded ? null : recipeId)}
-                  onSelect={() => onSelectRecipe(recipe)}
-                  onQuickSave={() => handleQuickSave(recipe, recipeId)}
-                />
+                <motion.div key={recipeId} variants={cardVariants}>
+                  <TopRatedSearchCard
+                    recipe={recipe}
+                    index={index}
+                    isExpanded={isExpanded}
+                    isSavingThis={isSavingThis}
+                    isSavedThis={isSavedThis}
+                    onExpand={() => setExpandedRecipeId(isExpanded ? null : recipeId)}
+                    onSelect={() => onSelectRecipe(recipe)}
+                    onQuickSave={() => handleQuickSave(recipe, recipeId)}
+                  />
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
 
           {hasSearched && recipes.length > 0 && !error && (
             <div className="pt-2">

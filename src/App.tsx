@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { 
   collection, 
   onSnapshot, 
@@ -37,6 +38,34 @@ const INITIAL_FILTERS: RecipeFilters = {
   cuisine: "All",
   mealType: "All",
   maxCookingTime: 9999, // default to effectively no limit
+};
+
+const recipeListContainerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const recipeCardVariants = {
+  hidden: {
+    opacity: 0,
+    y: 18,
+    scale: 0.98,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.38,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
 };
 
 const getMealTypeColor = (type: string | undefined, selected: boolean) => {
@@ -188,6 +217,16 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('cookbook_admin');
     setIsAdmin(false);
+  };
+
+  const handleLogoClick = () => {
+    setCurrentTab("recipes");
+    setIsDetailOpen(false);
+    setActiveRecipe(null);
+    setEditingRecipe(null);
+    setFilters(INITIAL_FILTERS);
+    setShowFilters(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Local Storage loaders (Fallback)
@@ -452,14 +491,17 @@ export default function App() {
           </div>
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div 
-            className="flex items-center gap-1.5 select-none cursor-pointer"
+          <button 
+            type="button"
+            onClick={handleLogoClick}
             onDoubleClick={isAdmin ? handleLogout : handleLogin}
-            title={isAdmin ? "Double click to sign out" : "Double click to sign in"}
+            className="flex items-center gap-1.5 select-none cursor-pointer text-left focus:outline-none group bg-transparent border-0 p-0"
+            title={isAdmin ? "Go to recipes (Double click to sign out)" : "Go to recipes (Double click to sign in)"}
+            aria-label="Cookbook - Go back to recipe page"
           >
-            <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50" />
-            <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50">Cookbook</h1>
-          </div>
+            <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors" />
+            <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors">Cookbook</h1>
+          </button>
           
           <div className="flex items-center gap-2 sm:gap-4">
             <button
@@ -616,22 +658,38 @@ export default function App() {
                   <div className="w-6 h-6 border-2 border-neutral-200 border-t-neutral-800 rounded-full animate-spin"></div>
                 </div>
               ) : filteredRecipes.length === 0 ? (
-                <div className="text-center py-20 text-neutral-500">
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center py-20 text-neutral-500"
+                >
                   <p className="text-sm">No recipes found.</p>
-                </div>
+                </motion.div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                <motion.div 
+                  key={`recipes-grid-${filters.cuisine}-${filters.mealType}`}
+                  variants={recipeListContainerVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4"
+                >
                   {filteredRecipes.map((recipe) => (
-                    <RecipeCard
+                    <motion.div
                       key={recipe.id}
-                      recipe={recipe}
-                      onView={(r) => {
-                        setActiveRecipe(r);
-                        setIsDetailOpen(true);
-                      }}
-                    />
+                      variants={recipeCardVariants}
+                      className="h-full"
+                    >
+                      <RecipeCard
+                        recipe={recipe}
+                        onView={(r) => {
+                          setActiveRecipe(r);
+                          setIsDetailOpen(true);
+                        }}
+                      />
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
             </div>
           </div>
