@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { X, Clock, ChefHat, Users, Printer, Calendar, Edit2, Trash2, Minus, Plus, ListChecks, Check, ChevronDown, Activity, UtensilsCrossed } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { X, Clock, ChefHat, Users, Calendar, Edit2, Trash2, Minus, Plus, ListChecks, Check, ChevronDown, Activity, UtensilsCrossed } from "lucide-react";
 import { Recipe, MealPlanEntry } from "../types";
 import InstructionStep from "./InstructionStep";
 import RecipeIcon from "./RecipeIcon";
@@ -54,6 +54,10 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [completedIngredients, setCompletedIngredients] = useState<Set<number>>(new Set());
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
+  const [isIngredientsCollapsed, setIsIngredientsCollapsed] = useState(false);
+  const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const lastScrollY = useRef(0);
 
   // Initialize servings and dates
   useEffect(() => {
@@ -67,8 +71,44 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
       setCompletedSteps(new Set());
       setCompletedIngredients(new Set());
       setIsCookingModeOpen(false);
+      setIsIngredientsCollapsed(false);
+      setHasAutoCollapsed(false);
+      if (bodyRef.current) {
+        bodyRef.current.scrollTop = 0;
+      }
     }
   }, [recipe, isOpen]);
+
+  // Handle scroll to auto-collapse ingredients on mobile when scrolling down
+  useEffect(() => {
+    const handleScroll = () => {
+      const container = bodyRef.current;
+      if (!container) return;
+
+      // Only run on mobile viewports (< 768px)
+      if (window.innerWidth >= 768) return;
+
+      const currentScrollY = container.scrollTop;
+
+      // If they scrolled down past a threshold (e.g. 15px) and we haven't auto-collapsed yet
+      if (currentScrollY > lastScrollY.current && currentScrollY > 15 && !hasAutoCollapsed && !isIngredientsCollapsed) {
+        setIsIngredientsCollapsed(true);
+        setHasAutoCollapsed(true);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+
+    const container = bodyRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+    }
+    return () => {
+      if (container) {
+        container.removeEventListener("scroll", handleScroll);
+      }
+    };
+  }, [hasAutoCollapsed, isIngredientsCollapsed]);
 
   if (!isOpen || !recipe) return null;
 
@@ -131,10 +171,6 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <div id="recipe-modal-overlay" className="fixed inset-0 z-50 flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 overflow-hidden print:bg-white">
       <div id="recipe-modal-card" className="relative w-full h-full max-w-5xl mx-auto flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 print:max-w-none print:w-full">
@@ -163,13 +199,13 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
             <button
               type="button"
               onClick={() => setIsCookingModeOpen(true)}
-              className="px-3 py-1.5 bg-accent-500 hover:bg-accent-600 dark:bg-accent-600 dark:hover:bg-accent-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+              className="hidden md:flex px-3 py-1.5 bg-accent-500 hover:bg-accent-600 dark:bg-accent-600 dark:hover:bg-accent-500 text-white rounded-lg text-xs font-semibold items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
               title="Start Full-Screen Cooking Mode"
             >
               <ChefHat className="w-3.5 h-3.5" />
               <span>Cooking Mode</span>
             </button>
-            <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
+            <div className="hidden md:block w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
             {isAdmin && (
               <>
                 <button
@@ -200,7 +236,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
         </div>
 
         {/* Recipe Body */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 print:overflow-visible">
+        <div ref={bodyRef} className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 print:overflow-visible">
           {/* Cover & General Metadata */}
           <div className="flex flex-col md:flex-row gap-8">
             {recipe.imageUrl ? (
@@ -274,44 +310,72 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
           {/* Core Content Grid: Ingredients & Instructions */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-16">
             {/* Ingredients */}
-            <div className="md:col-span-2 space-y-6">
-              <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest">
-                Ingredients
-              </h3>
-              <div className="space-y-2 md:space-y-3">
-                {recipe.ingredients.map((ing, idx) => {
-                  const isCompleted = completedIngredients.has(idx);
-                  return (
-                    <div 
-                      key={idx}
-                      onClick={() => {
-                        const newSet = new Set(completedIngredients);
-                        if (newSet.has(idx)) newSet.delete(idx);
-                        else newSet.add(idx);
-                        setCompletedIngredients(newSet);
-                      }}
-                      className={`flex items-center justify-between gap-3 p-2 md:p-3 rounded-lg md:rounded-xl border md:border-2 transition-all cursor-pointer ${
-                        isCompleted 
-                          ? "border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-400 dark:text-neutral-600" 
-                          : "border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-200 dark:hover:border-neutral-700 md:hover:border-neutral-300 dark:md:hover:border-neutral-600 hover:shadow-sm text-neutral-800 dark:text-neutral-200"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 md:gap-3">
-                        <div className={`w-4 h-4 md:w-5 md:h-5 shrink-0 rounded-full flex items-center justify-center border md:border-2 transition-colors ${
-                          isCompleted ? "bg-accent-100 dark:bg-accent-900/30 border-accent-200 dark:border-accent-800 text-accent-700 dark:text-accent-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
-                        }`}>
-                          <Check className="w-2.5 h-2.5 md:w-3 md:h-3" strokeWidth={3} />
+            <div className="md:col-span-2 space-y-4 md:space-y-6">
+              <div 
+                onClick={() => {
+                  if (window.innerWidth < 768) {
+                    setIsIngredientsCollapsed(!isIngredientsCollapsed);
+                  }
+                }}
+                className="flex items-center justify-between cursor-pointer md:cursor-default"
+              >
+                <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest flex items-center gap-2 select-none">
+                  <span>Ingredients</span>
+                  {isIngredientsCollapsed && (
+                    <span className="text-[11px] font-mono tracking-normal font-normal text-neutral-500 dark:text-neutral-400 normal-case">
+                      ({recipe.ingredients.length} items · {completedIngredients.size} checked)
+                    </span>
+                  )}
+                </h3>
+                <button
+                  type="button"
+                  className="md:hidden flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors"
+                  aria-label={isIngredientsCollapsed ? "Expand ingredients" : "Collapse ingredients"}
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isIngredientsCollapsed ? "" : "transform rotate-180"}`} />
+                </button>
+              </div>
+
+              <div className={`transition-all duration-300 ease-in-out origin-top overflow-hidden ${
+                isIngredientsCollapsed 
+                  ? "max-h-0 opacity-0 pointer-events-none md:max-h-none md:opacity-100 md:pointer-events-auto" 
+                  : "max-h-[1200px] opacity-100"
+              }`}>
+                <div className="space-y-2 md:space-y-3 pb-1">
+                  {recipe.ingredients.map((ing, idx) => {
+                    const isCompleted = completedIngredients.has(idx);
+                    return (
+                      <div 
+                        key={idx}
+                        onClick={() => {
+                          const newSet = new Set(completedIngredients);
+                          if (newSet.has(idx)) newSet.delete(idx);
+                          else newSet.add(idx);
+                          setCompletedIngredients(newSet);
+                        }}
+                        className={`flex items-center justify-between gap-3 p-2 md:p-3 rounded-lg md:rounded-xl border md:border-2 transition-all cursor-pointer ${
+                          isCompleted 
+                            ? "border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-400 dark:text-neutral-600" 
+                            : "border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-200 dark:hover:border-neutral-700 md:hover:border-neutral-300 dark:md:hover:border-neutral-600 hover:shadow-sm text-neutral-800 dark:text-neutral-200"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 md:gap-3">
+                          <div className={`w-4 h-4 md:w-5 md:h-5 shrink-0 rounded-full flex items-center justify-center border md:border-2 transition-colors ${
+                            isCompleted ? "bg-accent-100 dark:bg-accent-900/30 border-accent-200 dark:border-accent-800 text-accent-700 dark:text-accent-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
+                          }`}>
+                            <Check className="w-2.5 h-2.5 md:w-3 md:h-3" strokeWidth={3} />
+                          </div>
+                          <span className={`text-sm md:text-sm leading-tight transition-all ${isCompleted ? "line-through" : ""}`}>
+                            {formatIngredientName(ing.name)}
+                          </span>
                         </div>
-                        <span className={`text-sm md:text-sm leading-tight transition-all ${isCompleted ? "line-through" : ""}`}>
-                          {formatIngredientName(ing.name)}
+                        <span className={`font-mono text-xs md:text-xs text-right shrink-0 transition-all ${isCompleted ? "text-neutral-400 dark:text-neutral-600" : "text-neutral-500 dark:text-neutral-400"}`}>
+                          {formatAmount(ing.amount)} {ing.unit}
                         </span>
                       </div>
-                      <span className={`font-mono text-xs md:text-xs text-right shrink-0 transition-all ${isCompleted ? "text-neutral-400 dark:text-neutral-600" : "text-neutral-500 dark:text-neutral-400"}`}>
-                        {formatAmount(ing.amount)} {ing.unit}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -554,27 +618,30 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
           )}
         </div>
 
-        {/* Print / Footer Action Bar */}
-        <div className="px-6 py-4 border-t border-neutral-100 dark:border-neutral-700 flex justify-between items-center print:hidden">
-          <p className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
+        {/* Footer Action Bar */}
+        <div className="px-6 py-4 border-t border-neutral-100 dark:border-neutral-700 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
+          <p className="hidden md:block text-xs text-neutral-400 dark:text-neutral-500 font-mono">
             Original: {recipe.servings}s
           </p>
-          <div className="flex items-center gap-3">
+          <div className="w-full md:w-auto flex items-center justify-center">
+            {/* Mobile view: centered prominent cooking mode button */}
             <button
               type="button"
               onClick={() => setIsCookingModeOpen(true)}
-              className="text-xs font-medium text-accent-600 dark:text-accent-400 hover:underline flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="md:hidden w-full max-w-sm py-3 bg-accent-500 hover:bg-accent-600 dark:bg-accent-600 dark:hover:bg-accent-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              <ChefHat className="w-4 h-4" />
+              <span>Start Cooking Mode</span>
+            </button>
+            
+            {/* Desktop view: standard text link */}
+            <button
+              type="button"
+              onClick={() => setIsCookingModeOpen(true)}
+              className="hidden md:flex text-xs font-medium text-accent-600 dark:text-accent-400 hover:underline items-center gap-1.5 transition-colors cursor-pointer"
             >
               <ChefHat className="w-3.5 h-3.5" />
               Cooking Mode
-            </button>
-            <span className="text-neutral-300 dark:text-neutral-700">•</span>
-            <button
-              onClick={handlePrint}
-              className="text-xs font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1.5 transition-colors"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              Print
             </button>
           </div>
         </div>
