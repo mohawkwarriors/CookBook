@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316" />
+      <stop offset="50%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#c2410c" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#7c2d12" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="512" height="256" rx="112" fill="url(#glowGrad)" />
+
+  <!-- Inner Cookbook & Cutlery Art -->
+  <g filter="url(#shadow)" transform="translate(106, 106)">
+    <!-- Book Base / Recipe Journal -->
+    <path d="M40 50 C40 38 48 30 60 30 L250 30 C265 30 275 42 275 58 L275 240 C275 255 262 268 245 268 L60 268 C48 268 40 260 40 248 Z" fill="#ffffff" />
+    
+    <!-- Spine Accent -->
+    <path d="M40 50 C40 38 48 30 60 30 L76 30 L76 268 L60 268 C48 268 40 260 40 248 Z" fill="#fed7aa" />
+
+    <!-- Chef Hat & Utensil Emblem on Book Cover -->
+    <!-- Chef Hat -->
+    <path d="M125 105 C115 105 108 114 110 124 C100 126 95 136 98 146 C95 154 100 165 110 168 L206 168 C216 165 221 154 218 146 C221 136 216 126 206 124 C208 114 201 105 191 105 C182 105 174 112 172 120 C166 112 150 112 144 120 C142 112 134 105 125 105 Z" fill="#ea580c" />
+    <rect x="110" y="174" width="96" height="18" rx="6" fill="#ea580c" />
+    <line x1="130" y1="174" x2="130" y2="192" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+    <line x1="158" y1="174" x2="158" y2="192" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+    <line x1="186" y1="174" x2="186" y2="192" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+
+    <!-- Crossed Fork & Spoon underneath -->
+    <!-- Fork -->
+    <path d="M118 214 L142 238 M122 210 L146 234 M126 206 L150 230 M124 212 L136 224 L178 266" stroke="#ea580c" stroke-width="5" stroke-linecap="round" />
+    <!-- Spoon -->
+    <path d="M198 206 C190 200 178 206 174 216 C172 222 174 228 178 232 L138 272" stroke="#ea580c" stroke-width="5" stroke-linecap="round" />
+
+    <!-- Ribbon Bookmark -->
+    <path d="M216 30 L216 92 L230 80 L244 92 L244 30 Z" fill="#c2410c" />
+  </g>
+</svg>

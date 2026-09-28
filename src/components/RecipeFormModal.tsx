@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { X, Loader2, Plus, Trash2, ArrowRight, Search, PenTool, Link2, Check } from "lucide-react";
 import { Recipe, Ingredient, TopRatedRecipe } from "../types";
 import TopRatedSearch from "./TopRatedSearch";
@@ -313,11 +314,12 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       {!editingRecipe && (
         <div className="shrink-0 px-3 sm:px-6 pt-2.5 sm:pt-3 pb-2.5 sm:pb-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
           <div className="grid grid-cols-3 gap-1 p-1 bg-neutral-200/70 dark:bg-neutral-900 rounded-xl text-xs font-medium w-full max-w-md mx-auto">
-            <button
+            <motion.button
               id="tab-search"
               type="button"
+              whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab("search")}
-              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none active:scale-98 ${
+              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none ${
                 activeTab === "search"
                   ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 shadow-xs font-bold"
                   : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
@@ -325,13 +327,14 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             >
               <Search className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0" />
               <span className="hidden sm:inline truncate">Search</span>
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
               id="tab-scraper"
               type="button"
+              whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab("scraper")}
-              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none active:scale-98 ${
+              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none ${
                 activeTab === "scraper"
                   ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 shadow-xs font-bold"
                   : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
@@ -339,13 +342,14 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             >
               <Link2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-blue-500 shrink-0" />
               <span className="hidden sm:inline truncate">Paste URL</span>
-            </button>
+            </motion.button>
 
-            <button
+            <motion.button
               id="tab-manual"
               type="button"
+              whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab("manual")}
-              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none active:scale-98 ${
+              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none ${
                 activeTab === "manual"
                   ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 shadow-xs font-bold"
                   : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
@@ -353,21 +357,37 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             >
               <PenTool className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
               <span className="hidden sm:inline truncate">Manual</span>
-            </button>
+            </motion.button>
           </div>
         </div>
       )}
 
       {/* Main Tab Views */}
       <div className="p-3.5 sm:p-6 pb-20 sm:pb-6">
+        <AnimatePresence mode="wait">
         {activeTab === "search" && !editingRecipe ? (
-          <TopRatedSearch
-            onSelectRecipe={handleSelectTopRecipe}
-            onQuickSave={handleQuickSaveTopRecipe}
-          />
+          <motion.div
+            key="tab-search-content"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <TopRatedSearch
+              onSelectRecipe={handleSelectTopRecipe}
+              onQuickSave={handleQuickSaveTopRecipe}
+            />
+          </motion.div>
         ) : activeTab === "scraper" && !editingRecipe ? (
           /* Simplified URL Import View - Mobile Optimized */
-          <div className="max-w-xl mx-auto py-5 sm:py-8 space-y-4 text-center px-1 sm:px-0">
+          <motion.div
+            key="tab-scraper-content"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="max-w-xl mx-auto py-5 sm:py-8 space-y-4 text-center px-1 sm:px-0"
+          >
             <div className="space-y-1">
               <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
                 Import from any Website
@@ -419,10 +439,18 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 {scrapeError}
               </div>
             )}
-          </div>
+          </motion.div>
         ) : (
           /* Mobile-Optimized Manual Form View */
-          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6 max-w-3xl mx-auto">
+          <motion.form 
+            key="tab-manual-content"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            onSubmit={handleSubmit} 
+            className="space-y-5 sm:space-y-6 max-w-3xl mx-auto"
+          >
             {/* Title & Description */}
             <div className="space-y-3">
               <div>
@@ -745,8 +773,9 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 )}
               </button>
             </div>
-          </form>
+          </motion.form>
         )}
+        </AnimatePresence>
       </div>
     </div>
   );

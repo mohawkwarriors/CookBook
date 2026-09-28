@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "Recipe": {
+      "title": "Recipe",
+      "description": "A curated culinary recipe with ingredients, instructions, and nutritional information.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Recipe title", "maxLength": 200 },
+        "description": { "type": "string", "description": "Brief description of the dish", "maxLength": 1000 },
+        "cuisine": { "type": "string", "description": "Cuisine type", "maxLength": 50 },
+        "mealType": { "type": "string", "description": "Category: Main, Starter, Side, Drink, Dessert, Snack", "maxLength": 50 },
+        "cookingTime": { "type": "number", "description": "Total cooking time in minutes" },
+        "servings": { "type": "number", "description": "Serving count" },
+        "imageUrl": { "type": "string", "description": "Optional image URL" },
+        "ingredients": { "type": "array", "description": "List of ingredient items with amounts and units" },
+        "instructions": { "type": "array", "description": "Ordered steps for preparation" },
+        "notes": { "type": "string", "description": "Chef tips and variations" },
+        "nutrition": { "type": "object", "description": "Nutritional breakdown" },
+        "sourceUrl": { "type": "string", "description": "Source attribution link" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of creation" }
+      },
+      "required": ["title", "cuisine", "mealType", "cookingTime", "servings", "ingredients", "instructions"]
+    },
+    "MealPlanEntry": {
+      "title": "MealPlanEntry",
+      "description": "A scheduled meal plan calendar slot for a specific recipe.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "description": "YYYY-MM-DD date key", "maxLength": 20 },
+        "mealType": { "type": "string", "description": "Breakfast, Lunch, Dinner, or Snack", "maxLength": 50 },
+        "recipeId": { "type": "string", "description": "Referenced Recipe ID", "maxLength": 128 },
+        "recipeTitle": { "type": "string", "description": "Recipe title snapshot", "maxLength": 200 },
+        "servings": { "type": "number", "description": "Planned servings" }
+      },
+      "required": ["date", "mealType", "recipeId", "recipeTitle", "servings"]
+    }
+  },
+  "firestore": {
+    "/recipes/{recipeId}": {
+      "schema": "Recipe",
+      "description": "Collection of all recipes available in the cookbook."
+    },
+    "/mealPlan/{mealId}": {
+      "schema": "MealPlanEntry",
+      "description": "Scheduled meal plan entries on the calendar."
+    }
+  }
+}

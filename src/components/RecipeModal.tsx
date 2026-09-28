@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { X, Clock, ChefHat, Users, Calendar, Edit2, Trash2, Minus, Plus, ListChecks, Check, ChevronDown, Activity, UtensilsCrossed } from "lucide-react";
 import { Recipe, MealPlanEntry } from "../types";
 import InstructionStep from "./InstructionStep";
@@ -110,10 +111,8 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
     };
   }, [hasAutoCollapsed, isIngredientsCollapsed]);
 
-  if (!isOpen || !recipe) return null;
-
   // Scale multiplier
-  const scaleRatio = servings / (recipe.servings || 1);
+  const scaleRatio = servings / (recipe?.servings || 1);
 
   // Helper to format scaled ingredient amounts beautifully
   const formatAmount = (amount: number) => {
@@ -132,7 +131,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   };
 
   const handlePlanMeal = async () => {
-    if (!plannerDate) return;
+    if (!plannerDate || !recipe) return;
     setIsPlanning(true);
     try {
       await onAddToCalendar({
@@ -152,7 +151,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   };
 
   const handleDeleteClick = async () => {
-    if (!recipe.id) return;
+    if (!recipe || !recipe.id) return;
     
     if (!showDeleteConfirm) {
       setShowDeleteConfirm(true);
@@ -172,8 +171,25 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   };
 
   return (
-    <div id="recipe-modal-overlay" className="fixed inset-0 z-50 flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 overflow-hidden print:bg-white">
-      <div id="recipe-modal-card" className="relative w-full h-full max-w-5xl mx-auto flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 print:max-w-none print:w-full">
+    <AnimatePresence>
+      {isOpen && recipe && (
+        <motion.div 
+          key="recipe-modal-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22 }}
+          id="recipe-modal-overlay" 
+          className="fixed inset-0 z-50 flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 overflow-hidden print:bg-white"
+        >
+          <motion.div 
+            id="recipe-modal-card" 
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full h-full max-w-5xl mx-auto flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 print:max-w-none print:w-full"
+          >
         
         {/* Header Block */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-neutral-700 print:hidden">
@@ -288,22 +304,24 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <button
+              <motion.button
+                whileTap={{ scale: 0.88 }}
                 onClick={handleDecreaseServings}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-900 dark:hover:border-white hover:text-neutral-900 dark:hover:text-white transition-all disabled:opacity-35"
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-900 dark:hover:border-white hover:text-neutral-900 dark:hover:text-white transition-all disabled:opacity-35 cursor-pointer"
                 disabled={servings <= 1}
               >
                 <Minus className="w-3 h-3" />
-              </button>
-              <span className="w-6 text-center font-medium text-neutral-900 dark:text-neutral-50">
+              </motion.button>
+              <span className="w-6 text-center font-medium text-neutral-900 dark:text-neutral-50 tabular-nums">
                 {servings}
               </span>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.88 }}
                 onClick={handleIncreaseServings}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-900 dark:hover:border-white hover:text-neutral-900 dark:hover:text-white transition-all"
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-900 dark:hover:border-white hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
               >
                 <Plus className="w-3 h-3" />
-              </button>
+              </motion.button>
             </div>
           </div>
 
@@ -345,34 +363,39 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
                   {recipe.ingredients.map((ing, idx) => {
                     const isCompleted = completedIngredients.has(idx);
                     return (
-                      <div 
+                      <motion.div 
                         key={idx}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => {
                           const newSet = new Set(completedIngredients);
                           if (newSet.has(idx)) newSet.delete(idx);
                           else newSet.add(idx);
                           setCompletedIngredients(newSet);
                         }}
-                        className={`flex items-center justify-between gap-3 p-2 md:p-3 rounded-lg md:rounded-xl border md:border-2 transition-all cursor-pointer ${
+                        className={`flex items-center justify-between gap-3 p-2 md:p-3 rounded-lg md:rounded-xl border md:border-2 transition-all cursor-pointer select-none ${
                           isCompleted 
                             ? "border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-400 dark:text-neutral-600" 
                             : "border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-200 dark:hover:border-neutral-700 md:hover:border-neutral-300 dark:md:hover:border-neutral-600 hover:shadow-sm text-neutral-800 dark:text-neutral-200"
                         }`}
                       >
                         <div className="flex items-center gap-2 md:gap-3">
-                          <div className={`w-4 h-4 md:w-5 md:h-5 shrink-0 rounded-full flex items-center justify-center border md:border-2 transition-colors ${
-                            isCompleted ? "bg-accent-100 dark:bg-accent-900/30 border-accent-200 dark:border-accent-800 text-accent-700 dark:text-accent-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
-                          }`}>
+                          <motion.div 
+                            animate={{ scale: isCompleted ? [0.8, 1.25, 1] : 1 }}
+                            transition={{ duration: 0.2 }}
+                            className={`w-4 h-4 md:w-5 md:h-5 shrink-0 rounded-full flex items-center justify-center border md:border-2 transition-colors ${
+                              isCompleted ? "bg-accent-100 dark:bg-accent-900/30 border-accent-200 dark:border-accent-800 text-accent-700 dark:text-accent-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
+                            }`}
+                          >
                             <Check className="w-2.5 h-2.5 md:w-3 md:h-3" strokeWidth={3} />
-                          </div>
-                          <span className={`text-sm md:text-sm leading-tight transition-all ${isCompleted ? "line-through" : ""}`}>
+                          </motion.div>
+                          <span className={`text-sm md:text-sm leading-tight transition-all ${isCompleted ? "line-through opacity-70" : ""}`}>
                             {formatIngredientName(ing.name)}
                           </span>
                         </div>
-                        <span className={`font-mono text-xs md:text-xs text-right shrink-0 transition-all ${isCompleted ? "text-neutral-400 dark:text-neutral-600" : "text-neutral-500 dark:text-neutral-400"}`}>
+                        <span className={`font-mono text-xs md:text-xs text-right shrink-0 transition-all ${isCompleted ? "text-neutral-400 dark:text-neutral-600 opacity-70" : "text-neutral-500 dark:text-neutral-400"}`}>
                           {formatAmount(ing.amount)} {ing.unit}
                         </span>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -645,7 +668,7 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
             </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Step-by-Step Full-Screen Cooking Mode */}
       <CookingMode
@@ -668,6 +691,8 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
         }}
         onClose={() => setIsCookingModeOpen(false)}
       />
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

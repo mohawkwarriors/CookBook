@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { MealPlanEntry, Recipe } from "../types";
 
@@ -65,30 +66,41 @@ export default function MealPlanner({ mealPlan, onRemoveMeal, onViewRecipe }: Me
             {formatMonthYear(weekDays[0])}
           </span>
           <div className="flex items-center gap-1">
-            <button
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={() => setCurrentDate(new Date(currentDate.setDate(currentDate.getDate() - 7)))}
-              className="p-1 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-md text-neutral-400 dark:text-neutral-500"
+              className="p-1 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-md text-neutral-400 dark:text-neutral-500 cursor-pointer"
             >
               <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               onClick={() => setCurrentDate(new Date())}
-              className="px-2 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white"
+              className="px-2 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
             >
               Today
-            </button>
-            <button
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={() => setCurrentDate(new Date(currentDate.setDate(currentDate.getDate() + 7)))}
-              className="p-1 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-md text-neutral-400 dark:text-neutral-500"
+              className="p-1 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-md text-neutral-400 dark:text-neutral-500 cursor-pointer"
             >
               <ChevronRight className="w-5 h-5" />
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
 
-      {/* Grid Week Planner Desktop view */}
-      <div className="hidden lg:grid grid-cols-7 gap-4">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={formatDateKey(weekDays[0])}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Grid Week Planner Desktop view */}
+          <div className="hidden lg:grid grid-cols-7 gap-4">
         {weekDays.map((day) => {
           const dateStr = formatDateKey(day);
           const active = isToday(day);
@@ -206,6 +218,8 @@ export default function MealPlanner({ mealPlan, onRemoveMeal, onViewRecipe }: Me
           );
         })}
       </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

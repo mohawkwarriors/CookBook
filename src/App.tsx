@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   collection, 
   onSnapshot, 
@@ -17,6 +17,8 @@ import RecipeModal from "./components/RecipeModal";
 import RecipeFormModal from "./components/RecipeFormModal";
 import MealPlanner from "./components/MealPlanner";
 import RecipeBuilderGame from "./components/RecipeBuilderGame";
+import { PWAInstallButton } from "./components/PWAInstallButton";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 import { 
   BookOpen, 
   Plus, 
@@ -478,8 +480,11 @@ export default function App() {
       {/* Simple Clean Header */}
       <header className="border-b border-neutral-100 dark:border-neutral-700 bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
         {dbError && (
-          <div className="w-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-4 py-2 text-sm text-center font-medium border-b border-orange-200 dark:border-orange-800/50">
-            {dbError} <a href="https://console.firebase.google.com/project/cookbook-4b972/firestore/rules" target="_blank" rel="noreferrer" className="underline font-bold ml-2">Open Rules</a>
+          <div className="w-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-4 py-2 text-sm text-center font-medium border-b border-orange-200 dark:border-orange-800/50 flex items-center justify-between">
+            <span className="flex-1 text-center">{dbError}</span>
+            <button onClick={() => setDbError(null)} className="p-1 hover:bg-orange-200 dark:hover:bg-orange-800/50 rounded-full cursor-pointer shrink-0" aria-label="Dismiss">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
         {authError && (
@@ -504,6 +509,8 @@ export default function App() {
           </button>
           
           <div className="flex items-center gap-2 sm:gap-4">
+            <PWAInstallButton />
+            
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="p-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 shrink-0"
@@ -562,9 +569,16 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 sm:pb-8 space-y-12">
-        
+        <AnimatePresence mode="wait">
         {currentTab === "recipes" ? (
-          <div className="space-y-6 relative">
+          <motion.div 
+            key="tab-recipes"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-6 relative"
+          >
             <div className="md:sticky md:top-16 z-20 md:bg-[#FDFBF7]/95 md:dark:bg-neutral-800/95 md:backdrop-blur-sm md:py-4 md:-mx-4 md:px-4 md:-mt-4 transition-colors duration-300">
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="flex w-full md:w-96 gap-2">
@@ -586,69 +600,79 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-3 py-2 rounded-lg flex items-center justify-center transition-colors ${
+                  className={`px-3 py-2 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                     showFilters || filters.cuisine !== "All" || filters.mealType !== "All"
-                      ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900"
+                      ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 shadow-xs"
                       : "bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600"
                   }`}
                   title="Toggle Filters"
                 >
                   <Filter className="w-4 h-4" />
-                </button>
+                </motion.button>
               </div>
             </div>
 
               {/* Collapsible Filter Buttons */}
-              {showFilters && (
-                <div className="space-y-4 animate-in slide-in-from-top-2 fade-in duration-200 mt-4">
-                  {/* Cuisine Filter Buttons */}
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                  {CUISINES.map((c) => {
-                    const isSelected = filters.cuisine === c;
-                    
-                    return (
-                      <button
-                        key={c}
-                        onClick={() => setFilters((prev) => ({ ...prev, cuisine: c }))}
-                        className={`text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded-full transition-all ${
-                          isSelected
-                            ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 border border-transparent"
-                            : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-transparent"
-                        }`}
-                      >
-                        {c === "All" ? "All Cuisines" : c}
-                      </button>
-                    );
-                  })}
-                </div>
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                    className="space-y-4 overflow-hidden mt-4"
+                  >
+                    {/* Cuisine Filter Buttons */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                      {CUISINES.map((c) => {
+                        const isSelected = filters.cuisine === c;
+                        
+                        return (
+                          <motion.button
+                            key={c}
+                            whileTap={{ scale: 0.93 }}
+                            onClick={() => setFilters((prev) => ({ ...prev, cuisine: c }))}
+                            className={`text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 border border-transparent shadow-xs"
+                                : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-transparent"
+                            }`}
+                          >
+                            {c === "All" ? "All Cuisines" : c}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
 
-                {/* Meal Type Filter Buttons */}
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                  {["All", "Main", "Starter", "Side", "Drink", "Dessert", "Snack"].map((m) => {
-                    const isSelected = filters.mealType === m;
-                    const baseClass = "text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded-full transition-all";
-                    // Only pass the type into the color function if it's not "All" to get the proper colors
-                    const colorClass = m === "All"
-                      ? (isSelected 
-                          ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 border border-transparent"
-                          : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-transparent")
-                      : getMealTypeColor(m, isSelected);
+                    {/* Meal Type Filter Buttons */}
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                      {["All", "Main", "Starter", "Side", "Drink", "Dessert", "Snack"].map((m) => {
+                        const isSelected = filters.mealType === m;
+                        const baseClass = "text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer";
+                        const colorClass = m === "All"
+                          ? (isSelected 
+                              ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 border border-transparent shadow-xs"
+                              : "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 border border-transparent")
+                          : getMealTypeColor(m, isSelected);
 
-                    return (
-                      <button
-                        key={m}
-                        onClick={() => setFilters((prev) => ({ ...prev, mealType: m }))}
-                        className={`${baseClass} ${colorClass}`}
-                      >
-                        {m === "All" ? "All Meals" : m}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                        return (
+                          <motion.button
+                            key={m}
+                            whileTap={{ scale: 0.93 }}
+                            onClick={() => setFilters((prev) => ({ ...prev, mealType: m }))}
+                            className={`${baseClass} ${colorClass}`}
+                          >
+                            {m === "All" ? "All Meals" : m}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Recipes Cards Deck Grid */}
@@ -692,36 +716,59 @@ export default function App() {
                 </motion.div>
               )}
             </div>
-          </div>
+          </motion.div>
         ) : currentTab === "builder" && isAdmin ? (
-          <RecipeBuilderGame onRecipeGenerated={(recipe) => {
-            if (!isAdmin) {
-              // If not admin, just open the recipe in detail view
-              setActiveRecipe(recipe);
-              setIsDetailOpen(true);
-              return;
-            }
-            // Automatically switch back to recipes and open the form with the generated recipe
-            setEditingRecipe(recipe);
-            setCurrentTab("addRecipe");
-          }} />
+          <motion.div 
+            key="tab-builder"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <RecipeBuilderGame onRecipeGenerated={(recipe) => {
+              if (!isAdmin) {
+                // If not admin, just open the recipe in detail view
+                setActiveRecipe(recipe);
+                setIsDetailOpen(true);
+                return;
+              }
+              // Automatically switch back to recipes and open the form with the generated recipe
+              setEditingRecipe(recipe);
+              setCurrentTab("addRecipe");
+            }} />
+          </motion.div>
         ) : currentTab === "addRecipe" && isAdmin ? (
-          <RecipeFormModal
-            onClose={() => {
-              setCurrentTab("recipes");
-              setEditingRecipe(null);
-            }}
-            onSave={async (recipe) => {
-              await handleSaveRecipe(recipe);
-              setCurrentTab("recipes");
-            }}
-            onBackgroundSave={async (recipe) => {
-              await handleSaveRecipe(recipe);
-            }}
-            editingRecipe={editingRecipe}
-          />
+          <motion.div 
+            key="tab-addRecipe"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <RecipeFormModal
+              onClose={() => {
+                setCurrentTab("recipes");
+                setEditingRecipe(null);
+              }}
+              onSave={async (recipe) => {
+                await handleSaveRecipe(recipe);
+                setCurrentTab("recipes");
+              }}
+              onBackgroundSave={async (recipe) => {
+                await handleSaveRecipe(recipe);
+              }}
+              editingRecipe={editingRecipe}
+            />
+          </motion.div>
         ) : isAdmin ? (
-          <div className="space-y-6">
+          <motion.div 
+            key="tab-mealPlan"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="space-y-6"
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">Weekly Meal Plan</h2>
             </div>
@@ -737,9 +784,9 @@ export default function App() {
                 onViewRecipe={handleViewRecipeFromCalendar}
               />
             )}
-          </div>
+          </motion.div>
         ) : null}
-
+        </AnimatePresence>
       </main>
 
       {/* MODALS */}
@@ -796,47 +843,63 @@ export default function App() {
       )}
 
       {/* Login Modal */}
-      {isLoginModalOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">Admin Login</h3>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter the secret passcode to unlock edit features.</p>
-              
-              <form onSubmit={submitPasscode}>
-                <input 
-                  type="password"
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  placeholder="Enter passcode..."
-                  className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 mb-4"
-                  autoFocus
-                />
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsLoginModalOpen(false);
-                      setPasscode("");
-                      setAuthError(null);
-                    }}
-                    className="px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white transition-colors font-medium"
-                  >
-                    Unlock
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isLoginModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white dark:bg-neutral-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
+            >
+              <div className="p-6">
+                <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-50 mb-2">Admin Login</h3>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-6">Enter the secret passcode to unlock edit features.</p>
+                
+                <form onSubmit={submitPasscode}>
+                  <input 
+                    type="password"
+                    value={passcode}
+                    onChange={(e) => setPasscode(e.target.value)}
+                    placeholder="Enter passcode..."
+                    className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 mb-4"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLoginModalOpen(false);
+                        setPasscode("");
+                        setAuthError(null);
+                      }}
+                      className="px-4 py-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors font-medium cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      type="submit"
+                      className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white transition-colors font-medium cursor-pointer"
+                    >
+                      Unlock
+                    </motion.button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
+      <OfflineIndicator />
     </div>
   );
 }

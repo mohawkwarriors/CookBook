@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { Check, Play, Pause, Square, Clock } from "lucide-react";
 
 interface InstructionStepProps {
@@ -92,22 +93,31 @@ export default function InstructionStep({ step, idx, isCompleted, isParallel, on
   const isTimerYellow = isTimerActive && timeLeft <= 30 && !isTimerRed;
 
   return (
-    <div 
-      className="relative flex flex-col items-center group cursor-pointer w-full"
+    <motion.div 
+      className="relative flex flex-col items-center group cursor-pointer w-full select-none"
       onClick={onToggleComplete}
+      whileTap={{ scale: 0.99 }}
     >
       {/* Centered Node */}
-      <div className={`w-8 h-8 rounded-full border-[4px] border-white dark:border-neutral-900 flex items-center justify-center transition-colors relative z-10 mb-3 ${
+      <motion.div 
+        animate={{ 
+          scale: isCompleted ? [1, 1.25, 1] : 1,
+        }}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        className={`w-8 h-8 rounded-full border-[4px] border-white dark:border-neutral-900 flex items-center justify-center transition-colors relative z-10 mb-3 ${
         isCompleted 
-          ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 dark:border-neutral-900" 
+          ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 dark:border-neutral-900 shadow-sm" 
           : "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50"
       }`}>
         {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : <span className="text-xs font-bold">{idx + 1}</span>}
-      </div>
+      </motion.div>
 
       {/* Card Content */}
       <div className="w-full transition-all duration-300 relative z-10">
-        <div className={`p-4 md:p-5 rounded-2xl border-2 transition-all ${
+        <motion.div 
+          whileHover={{ y: -2 }}
+          transition={{ duration: 0.2 }}
+          className={`p-4 md:p-5 rounded-2xl border-2 transition-all ${
           isCompleted 
             ? "border-neutral-100 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/30 opacity-70" 
             : "border-neutral-100 dark:border-neutral-700 bg-[#FDFBF7] dark:bg-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-sm"
@@ -183,8 +193,8 @@ export default function InstructionStep({ step, idx, isCompleted, isParallel, on
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

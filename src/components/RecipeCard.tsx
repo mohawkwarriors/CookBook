@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "motion/react";
 import { Clock } from "lucide-react";
 import { Recipe } from "../types";
 import RecipeIcon from "./RecipeIcon";
@@ -26,9 +27,11 @@ export default function RecipeCard({ recipe, onView }: RecipeCardProps) {
   const hasImage = !!recipe.imageUrl;
 
   return (
-    <div
+    <motion.div
       onClick={() => onView(recipe)}
-      className="group cursor-pointer flex flex-row items-center bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-xl hover:shadow-md hover:border-neutral-200 dark:hover:border-neutral-600 transition-all overflow-hidden h-full p-2 gap-3"
+      whileHover={{ y: -3, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } }}
+      whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
+      className="group cursor-pointer flex flex-row items-center bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-xl hover:shadow-md hover:border-neutral-200 dark:hover:border-neutral-600 transition-all overflow-hidden h-full p-2 gap-3 select-none"
     >
       {/* Recipe Cover Thumbnail */}
       <div className={`w-[68px] h-[68px] sm:w-[76px] sm:h-[76px] shrink-0 overflow-hidden rounded-lg relative ${hasImage ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'}`}>
@@ -37,16 +40,16 @@ export default function RecipeCard({ recipe, onView }: RecipeCardProps) {
             src={recipe.imageUrl}
             alt={recipe.title}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
           />
         ) : (
-          <RecipeIcon recipe={recipe} className="w-full h-full group-hover:scale-105 transition-transform duration-700" />
+          <RecipeIcon recipe={recipe} className="w-full h-full group-hover:scale-108 transition-transform duration-500 ease-out" />
         )}
       </div>
 
       {/* Content */}
       <div className="flex flex-col flex-1 py-1 pr-2 min-w-0">
-        <h3 className="font-sans font-semibold text-sm sm:text-base text-neutral-900 dark:text-neutral-50 line-clamp-2">
+        <h3 className="font-sans font-semibold text-sm sm:text-base text-neutral-900 dark:text-neutral-50 line-clamp-2 transition-colors group-hover:text-accent-600 dark:group-hover:text-accent-400">
           {recipe.title}
         </h3>
         
@@ -69,6 +72,6 @@ export default function RecipeCard({ recipe, onView }: RecipeCardProps) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
