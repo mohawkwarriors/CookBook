@@ -60,6 +60,7 @@ body {
   background-color: #FDFBF7;
   margin: 0;
   padding: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   height: 100%;
   overscroll-behavior-y: none;
   -webkit-tap-highlight-color: transparent;
