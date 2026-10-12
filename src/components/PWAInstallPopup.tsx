@@ -88,7 +88,7 @@ export const PWAInstallPopup: React.FC = () => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 p-6 shadow-2xl z-10 overflow-hidden"
+          className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-800 p-6 shadow-2xl z-10 overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="install-modal-title"
@@ -106,7 +106,7 @@ export const PWAInstallPopup: React.FC = () => {
             <div className="flex flex-col items-center text-center">
               {/* App Icon badge matching brand palette */}
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-0.5 shadow-md shadow-emerald-500/20 mb-4 flex items-center justify-center">
-                <div className="w-full h-full rounded-[14px] bg-[#FDFBF7] dark:bg-neutral-900 flex items-center justify-center border border-emerald-400/30">
+                <div className="w-full h-full rounded-[14px] bg-[#FDFBF7] dark:bg-neutral-800 flex items-center justify-center border border-emerald-400/30">
                   <UtensilsCrossed className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
                 </div>
               </div>

@@ -295,7 +295,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   };
 
   return (
-    <div className="w-full sm:max-w-4xl mx-auto bg-[#FDFBF7] dark:bg-neutral-800 sm:bg-white sm:dark:bg-neutral-850 sm:rounded-2xl sm:border border-neutral-200/80 dark:border-neutral-700 sm:shadow-sm flex flex-col sm:mb-8">
+    <div className="w-full sm:max-w-4xl mx-auto bg-[#FDFBF7] dark:bg-neutral-700 sm:bg-white sm:dark:bg-neutral-700 sm:rounded-2xl sm:border border-neutral-200/80 dark:border-neutral-700 sm:shadow-sm flex flex-col sm:mb-8">
       {/* Responsive Header - Only show when editing to save space on Add Recipe page */}
       {editingRecipe && (
         <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-neutral-100 dark:border-neutral-800">
@@ -312,8 +312,8 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
 
       {/* Segmented Mode Switcher (Equal 1/3 columns, highly touch-friendly on mobile) */}
       {!editingRecipe && (
-        <div className="shrink-0 px-3 sm:px-6 pt-2.5 sm:pt-3 pb-2.5 sm:pb-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/30">
-          <div className="grid grid-cols-3 gap-1 p-1 bg-neutral-200/70 dark:bg-neutral-900 rounded-xl text-xs font-medium w-full max-w-md mx-auto">
+        <div className="shrink-0 px-3 sm:px-6 pt-2.5 sm:pt-3 pb-2.5 sm:pb-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-700/30">
+          <div className="grid grid-cols-3 gap-1 p-1 bg-neutral-200/70 dark:bg-neutral-700 rounded-xl text-xs font-medium w-full max-w-md mx-auto">
             <motion.button
               id="tab-search"
               type="button"
@@ -412,7 +412,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isScraping}
-                className="w-full sm:flex-1 h-12 px-3.5 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
+                className="w-full sm:flex-1 h-12 px-3.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
               />
               <button
                 id="draw-recipe-btn"
@@ -464,7 +464,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   placeholder="e.g. Grandma's Lasagna"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
                 />
               </div>
 
@@ -478,13 +478,13 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   placeholder="Brief note about the dish..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
                 />
               </div>
             </div>
 
             {/* Quick Details: Time and Servings */}
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 bg-neutral-50/80 dark:bg-neutral-800/40 p-3 sm:p-3.5 rounded-xl border border-neutral-100 dark:border-neutral-800">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 bg-neutral-50/80 dark:bg-neutral-700/40 p-3 sm:p-3.5 rounded-xl border border-neutral-100 dark:border-neutral-800">
               <div>
                 <label className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mb-1">
                   Cook Time (mins)
@@ -496,7 +496,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   required
                   value={cookingTime}
                   onChange={(e) => setCookingTime(parseInt(e.target.value) || 0)}
-                  className="w-full h-10 sm:h-9 px-2.5 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm sm:text-xs focus:outline-none"
+                  className="w-full h-10 sm:h-9 px-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm sm:text-xs focus:outline-none"
                 />
               </div>
 
@@ -511,7 +511,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   required
                   value={servings}
                   onChange={(e) => setServings(parseInt(e.target.value) || 1)}
-                  className="w-full h-10 sm:h-9 px-2.5 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm sm:text-xs focus:outline-none"
+                  className="w-full h-10 sm:h-9 px-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm sm:text-xs focus:outline-none"
                 />
               </div>
             </div>
@@ -530,7 +530,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                       mealType === t
                         ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 shadow-xs"
-                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                        : "bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                     }`}
                   >
                     {t}
@@ -553,7 +553,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                       cuisine === c
                         ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 shadow-xs"
-                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                        : "bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                     }`}
                   >
                     {c}
@@ -583,7 +583,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 {ingredients.map((ingredient, index) => (
                   <div key={index}>
                     {/* Mobile View (< sm): 2-tier card layout so ingredient name has ample space */}
-                    <div className="sm:hidden p-2.5 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-200/70 dark:border-neutral-700/60 space-y-2">
+                    <div className="sm:hidden p-2.5 bg-neutral-50 dark:bg-neutral-700/50 rounded-xl border border-neutral-200/70 dark:border-neutral-700/60 space-y-2">
                       <div className="flex items-center gap-2">
                         <input
                           type="text"
@@ -591,7 +591,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                           required
                           value={ingredient.name}
                           onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
-                          className="flex-1 px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
+                          className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
                         />
                         <button
                           type="button"
@@ -612,7 +612,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                             min="0"
                             value={ingredient.amount === 0 ? "" : ingredient.amount}
                             onChange={(e) => handleIngredientChange(index, "amount", parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
+                            className="w-full px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
                           />
                         </div>
                         <input
@@ -620,7 +620,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                           placeholder="Unit (tbsp, cups)"
                           value={ingredient.unit}
                           onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
+                          className="w-full px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
                         />
                       </div>
                     </div>
@@ -633,7 +633,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                         required
                         value={ingredient.name}
                         onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
-                        className="flex-1 px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs focus:outline-none"
+                        className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs focus:outline-none"
                       />
                       <input
                         type="number"
@@ -642,14 +642,14 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                         min="0"
                         value={ingredient.amount === 0 ? "" : ingredient.amount}
                         onChange={(e) => handleIngredientChange(index, "amount", parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs text-center focus:outline-none"
+                        className="w-20 px-2 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs text-center focus:outline-none"
                       />
                       <input
                         type="text"
                         placeholder="Unit"
                         value={ingredient.unit}
                         onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
-                        className="w-24 px-2 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs focus:outline-none"
+                        className="w-24 px-2 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs focus:outline-none"
                       />
                       <button
                         type="button"
@@ -669,7 +669,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
               <button
                 type="button"
                 onClick={handleAddIngredient}
-                className="w-full py-2.5 bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+                className="w-full py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Ingredient</span>
@@ -695,7 +695,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
 
               <div className="space-y-2">
                 {instructions.map((step, index) => (
-                  <div key={index} className="flex gap-2 items-start bg-neutral-50/60 dark:bg-neutral-800/30 p-2 sm:p-0 rounded-xl border sm:border-none border-neutral-100 dark:border-neutral-800">
+                  <div key={index} className="flex gap-2 items-start bg-neutral-50/60 dark:bg-neutral-700/30 p-2 sm:p-0 rounded-xl border sm:border-none border-neutral-100 dark:border-neutral-800">
                     <span className="w-6 h-6 mt-1 flex items-center justify-center bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold rounded-full shrink-0">
                       {index + 1}
                     </span>
@@ -705,7 +705,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                       required
                       value={step}
                       onChange={(e) => handleInstructionChange(index, e.target.value)}
-                      className="flex-1 px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
+                      className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
                     />
                     <button
                       type="button"
@@ -724,7 +724,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
               <button
                 type="button"
                 onClick={handleAddInstruction}
-                className="w-full py-2.5 bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+                className="w-full py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Step</span>
@@ -742,7 +742,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
+                className="w-full px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
               />
             </div>
 

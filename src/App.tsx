@@ -182,7 +182,7 @@ export default function App() {
       if (isDarkMode) {
         document.documentElement.classList.add("dark");
         localStorage.setItem("cookbook_theme", "dark");
-        if (metaTheme) metaTheme.setAttribute("content", "#131316");
+        if (metaTheme) metaTheme.setAttribute("content", "#2d2e34");
       } else {
         document.documentElement.classList.remove("dark");
         localStorage.setItem("cookbook_theme", "light");
@@ -645,7 +645,7 @@ export default function App() {
     <div className="min-h-full flex-1 bg-[#FDFBF7] dark:bg-neutral-800 flex flex-col font-sans transition-colors duration-300">
       
       {/* Simple Clean Header */}
-      <header className="border-b border-neutral-100 dark:border-neutral-800 bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
+      <header className="border-b border-neutral-100 dark:border-transparent bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
         {dbError && (
           <div className="w-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-4 py-2 text-sm text-center font-medium border-b border-orange-200 dark:border-orange-800/50 flex items-center justify-between">
             <span className="flex-1 text-center">{dbError}</span>
@@ -767,7 +767,7 @@ export default function App() {
                     placeholder="Search recipes..."
                     value={filters.searchQuery}
                     onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
-                    className="w-full pl-9 pr-4 py-2 bg-neutral-100/80 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-transparent dark:border-neutral-800/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-accent-500/50 dark:focus:ring-accent-400/50 text-sm transition-colors placeholder:text-neutral-400"
+                    className="w-full pl-9 pr-4 py-2 bg-neutral-100/80 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-transparent rounded-xl focus:outline-none focus:ring-1 focus:ring-accent-500/50 dark:focus:ring-accent-400/50 text-sm transition-colors placeholder:text-neutral-400"
                   />
                   {filters.searchQuery && (
                     <button
@@ -804,7 +804,7 @@ export default function App() {
                     className="space-y-4 overflow-hidden mt-4"
                   >
                     {/* Cuisine Filter Buttons */}
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-transparent">
                       {CUISINES.map((c) => {
                         const isSelected = filters.cuisine === c;
                         
@@ -826,7 +826,7 @@ export default function App() {
                     </div>
 
                     {/* Meal Type Filter Buttons */}
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                    <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-100 dark:border-transparent">
                       {["All", "Main", "Starter", "Side", "Drink", "Dessert", "Snack"].map((m) => {
                         const isSelected = filters.mealType === m;
                         const baseClass = "text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded-full transition-all cursor-pointer";
@@ -874,13 +874,13 @@ export default function App() {
                   variants={recipeListContainerVariants}
                   initial="hidden"
                   animate="visible"
-                  className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4"
+                  className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4"
                 >
                   {filteredRecipes.map((recipe) => (
                     <motion.div
                       key={recipe.id}
                       variants={recipeCardVariants}
-                      className="h-full"
+                      className="h-full max-w-md mx-auto w-full md:max-w-none"
                     >
                       <RecipeCard
                         recipe={recipe}
@@ -1022,7 +1022,7 @@ export default function App() {
           <button 
             type="button"
             onClick={() => setIsAdminPanelOpen(true)}
-            className="flex flex-col items-center justify-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 cursor-pointer"
+            className="flex flex-col items-center justify-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/60 dark:border-neutral-800 cursor-pointer"
             title={`Build: ${BUILD_ID} (${BUILD_DATE})\nTap to open Admin Panel`}
           >
             <span className="font-semibold text-[9px] text-neutral-500 dark:text-neutral-400">v{APP_VERSION}</span>
@@ -1045,7 +1045,7 @@ export default function App() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative"
+              className="bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative"
             >
               <div className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -1193,7 +1193,7 @@ export default function App() {
                     value={passcode}
                     onChange={(e) => setPasscode(e.target.value)}
                     placeholder="Enter passcode..."
-                    className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 mb-4"
+                    className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 mb-4"
                     autoFocus
                   />
                   <div className="flex justify-end gap-3">
