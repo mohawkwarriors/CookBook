@@ -19,6 +19,7 @@ import MealPlanner from "./components/MealPlanner";
 import RecipeBuilderGame from "./components/RecipeBuilderGame";
 import { PWAInstallButton } from "./components/PWAInstallButton";
 import { OfflineIndicator } from "./components/OfflineIndicator";
+import { APP_VERSION, BUILD_DATE, BUILD_ID } from "./version";
 import { 
   BookOpen, 
   Plus, 
@@ -199,6 +200,17 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(localStorage.getItem('cookbook_admin') === 'true');
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (window as any).__COOKBOOK_VERSION__ = APP_VERSION;
+    (window as any).__COOKBOOK_BUILD_DATE__ = BUILD_DATE;
+    (window as any).__COOKBOOK_BUILD_ID__ = BUILD_ID;
+    console.log(
+      `%c[Cookbook]%c Version v${APP_VERSION} (${BUILD_DATE}) [${BUILD_ID}]`,
+      "background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;",
+      "color: inherit; font-weight: 500;"
+    );
+  }, []);
 
   const handleLogin = () => {
     setAuthError(null);
@@ -499,17 +511,27 @@ export default function App() {
           </div>
         )}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <button 
-            type="button"
-            onClick={handleLogoClick}
-            onDoubleClick={isAdmin ? handleLogout : handleLogin}
-            className="flex items-center gap-1.5 select-none cursor-pointer text-left focus:outline-none group bg-transparent border-0 p-0"
-            title={isAdmin ? "Go to recipes (Double click to sign out)" : "Go to recipes (Double click to sign in)"}
-            aria-label="Cookbook - Go back to recipe page"
-          >
-            <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors" />
-            <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors">Cookbook</h1>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={handleLogoClick}
+              onDoubleClick={isAdmin ? handleLogout : handleLogin}
+              className="flex items-center gap-1.5 select-none cursor-pointer text-left focus:outline-none group bg-transparent border-0 p-0"
+              title={isAdmin ? `Admin Active • v${APP_VERSION} (${BUILD_DATE})\nDouble-click to sign out` : "Go to recipes (Double click to sign in)"}
+              aria-label="Cookbook - Go back to recipe page"
+            >
+              <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors" />
+              <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors">Cookbook</h1>
+            </button>
+            {isAdmin && (
+              <span 
+                className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-300/80 dark:border-neutral-700 select-none cursor-help"
+                title={`Cloudflare Sync Verification\nVersion: v${APP_VERSION}\nBuild: ${BUILD_DATE}\nBuild ID: ${BUILD_ID}`}
+              >
+                v{APP_VERSION}
+              </span>
+            )}
+          </div>
           
           <div className="flex items-center gap-2 sm:gap-4">
             <PWAInstallButton />
@@ -842,6 +864,14 @@ export default function App() {
             <Calendar className="w-5 h-5" />
             <span className="text-xs font-semibold tracking-wide">Planner</span>
           </button>
+
+          {/* Discreet admin version badge for mobile phone check */}
+          <div 
+            className="flex flex-col items-center justify-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800"
+            title={`Build: ${BUILD_ID} (${BUILD_DATE})`}
+          >
+            <span className="font-semibold text-[9px] text-neutral-500 dark:text-neutral-400">v{APP_VERSION}</span>
+          </div>
         </div>
       )}
 
@@ -896,6 +926,11 @@ export default function App() {
                     </motion.button>
                   </div>
                 </form>
+
+                <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-700/60 flex items-center justify-between text-[11px] text-neutral-400 dark:text-neutral-500 font-mono select-none">
+                  <span>Build version</span>
+                  <span>v{APP_VERSION} ({BUILD_DATE})</span>
+                </div>
               </div>
             </motion.div>
           </motion.div>
