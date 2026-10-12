@@ -51,28 +51,34 @@ html {
   font-size: 120%; 
   background-color: #FDFBF7;
   color-scheme: light dark;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
   background-color: #FDFBF7;
   margin: 0;
   padding: 0;
+  height: 100%;
   overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html.dark {
-  background-color: #131316 !important;
+#root {
+  min-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: #FDFBF7;
 }
 
-html.dark body {
+html.dark, html.dark body, html.dark #root {
   background-color: #131316 !important;
 }
 
 @media (prefers-color-scheme: dark) {
-  html:not(.light) {
-    background-color: #131316;
-  }
-  html:not(.light) body {
+  html:not(.light), html:not(.light) body, html:not(.light) #root {
     background-color: #131316;
   }
 }

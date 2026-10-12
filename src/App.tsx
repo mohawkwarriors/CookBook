@@ -478,7 +478,7 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] dark:bg-neutral-950 flex flex-col font-sans transition-colors duration-300">
+    <div className="min-h-full flex-1 bg-[#FDFBF7] dark:bg-neutral-950 flex flex-col font-sans transition-colors duration-300">
       
       {/* Simple Clean Header */}
       <header className="border-b border-neutral-100 dark:border-neutral-800 bg-[#FDFBF7] dark:bg-neutral-950 sticky top-0 z-10 transition-colors duration-300">
