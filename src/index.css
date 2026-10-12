@@ -49,4 +49,16 @@
 
 html { 
   font-size: 120%; 
+  background-color: #FDFBF7;
+}
+
+body {
+  background-color: #FDFBF7;
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: none;
+}
+
+.dark html, .dark body {
+  background-color: #131316;
 }

@@ -475,10 +475,10 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] dark:bg-neutral-800 flex flex-col font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-[#FDFBF7] dark:bg-neutral-950 flex flex-col font-sans transition-colors duration-300">
       
       {/* Simple Clean Header */}
-      <header className="border-b border-neutral-100 dark:border-neutral-700 bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
+      <header className="border-b border-neutral-100 dark:border-neutral-800 bg-[#FDFBF7] dark:bg-neutral-950 sticky top-0 z-10 transition-colors duration-300">
         {dbError && (
           <div className="w-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-4 py-2 text-sm text-center font-medium border-b border-orange-200 dark:border-orange-800/50 flex items-center justify-between">
             <span className="flex-1 text-center">{dbError}</span>
