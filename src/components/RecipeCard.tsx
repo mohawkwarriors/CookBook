@@ -34,7 +34,7 @@ export default function RecipeCard({ recipe, onView }: RecipeCardProps) {
       className="group cursor-pointer flex flex-row items-center bg-white dark:bg-neutral-700 border border-neutral-100 dark:border-neutral-600 rounded-xl hover:shadow-md hover:border-neutral-200 dark:hover:border-neutral-500 transition-all overflow-hidden h-full p-1.5 gap-2 select-none"
     >
       {/* Recipe Cover Thumbnail */}
-      <div className={`w-[60px] h-[60px] sm:w-[76px] sm:h-[76px] shrink-0 overflow-hidden rounded-lg relative ${hasImage ? 'bg-neutral-100 dark:bg-neutral-600' : 'bg-neutral-50 dark:bg-neutral-600/50'}`}>
+      <div className={`w-[60px] h-[60px] sm:w-[76px] sm:h-[76px] shrink-0 overflow-hidden rounded-lg relative ${hasImage ? 'bg-neutral-100 dark:bg-neutral-600' : ''}`}>
         {hasImage ? (
           <img
             src={recipe.imageUrl}
