@@ -140,10 +140,14 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
     <div className="max-w-2xl mx-auto py-12 px-4 flex flex-col min-h-[70vh]">
       
       {/* Progress Bar */}
-      <div className="mb-12">
-        <div className="w-full bg-neutral-100 dark:bg-neutral-700 h-2 rounded-full overflow-hidden">
+      <div className="mb-16">
+        <div className="flex justify-between items-end mb-3">
+          <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-400 dark:text-neutral-500">Curating Experience</span>
+          <span className="font-editorial italic text-lg text-accent-600 dark:text-accent-400">{currentIndex + 1} / {selectedQuestions.length}</span>
+        </div>
+        <div className="w-full bg-neutral-100 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden">
           <div 
-            className="bg-accent-500 dark:bg-accent-400 h-full rounded-full transition-all duration-500 ease-out"
+            className="bg-accent-500 dark:bg-accent-400 h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(16,185,129,0.3)]"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -151,12 +155,12 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
 
       {/* Question Card */}
       <div className="flex-1 flex flex-col justify-center animate-fade-in">
-        <h2 className="text-3xl md:text-4xl font-bold text-neutral-900 dark:text-neutral-50 mb-10 text-center leading-tight">
+        <h2 className="text-4xl md:text-5xl font-bold text-neutral-900 dark:text-neutral-50 mb-12 text-center leading-tight font-editorial">
           {question.title}
         </h2>
 
         {question.type === "text" ? (
-          <div className="max-w-md mx-auto w-full space-y-4">
+          <div className="max-w-md mx-auto w-full space-y-6">
             <input
               type="text"
               autoFocus
@@ -166,23 +170,23 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
                 if (e.key === 'Enter') handleNext();
               }}
               placeholder={question.placeholder}
-              className="w-full text-center text-xl p-4 border-2 border-neutral-200 dark:border-neutral-600 bg-transparent text-neutral-900 dark:text-neutral-50 rounded-2xl focus:outline-none focus:border-accent-500 dark:focus:border-accent-400 focus:ring-4 focus:ring-accent-100 dark:focus:ring-accent-900/30 transition-all placeholder:text-neutral-300 dark:placeholder:text-neutral-600"
+              className="w-full text-center text-2xl py-6 bg-transparent text-neutral-900 dark:text-neutral-50 border-b-2 border-neutral-200 dark:border-neutral-800 focus:outline-none focus:border-accent-500 dark:focus:border-accent-400 transition-all placeholder:text-neutral-200 dark:placeholder:text-neutral-800 font-editorial italic"
             />
             <button
               onClick={() => handleNext()}
               disabled={!currentInput.trim()}
-              className="w-full py-4 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-2xl font-bold text-lg hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              className="w-full py-5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-2xl font-bold text-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 active:scale-95"
             >
-              Next <ArrowRight className="w-5 h-5" />
+              Continue <ArrowRight className="w-5 h-5" />
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-xl mx-auto w-full">
             {question.options?.map((opt) => (
               <button
                 key={opt}
                 onClick={() => handleNext(opt)}
-                className="p-5 border-2 border-neutral-100 dark:border-neutral-700 bg-[#FDFBF7] dark:bg-neutral-900 rounded-2xl text-lg font-medium text-neutral-700 dark:text-neutral-300 hover:border-accent-500 dark:hover:border-accent-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-700 dark:hover:text-accent-300 transition-all transform active:scale-95 text-left flex items-center justify-between group"
+                className="p-6 border border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-2xl text-lg font-semibold text-neutral-700 dark:text-neutral-300 hover:border-accent-500 dark:hover:border-accent-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-700 dark:hover:text-accent-300 transition-all transform active:scale-95 text-left flex items-center justify-between group shadow-sm hover:shadow-md"
               >
                 <span>{opt}</span>
               </button>

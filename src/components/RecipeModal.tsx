@@ -212,15 +212,6 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
             )}
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsCookingModeOpen(true)}
-              className="hidden md:flex px-3 py-1.5 bg-accent-500 hover:bg-accent-600 dark:bg-accent-600 dark:hover:bg-accent-500 text-white rounded-lg text-xs font-semibold items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
-              title="Start Full-Screen Cooking Mode"
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              <span>Cooking Mode</span>
-            </button>
             <div className="hidden md:block w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
             {isAdmin && (
               <>
@@ -639,34 +630,6 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
               )}
             </div>
           )}
-        </div>
-
-        {/* Footer Action Bar */}
-        <div className="px-6 py-4 border-t border-neutral-100 dark:border-neutral-700 flex flex-col md:flex-row justify-between items-center gap-4 print:hidden">
-          <p className="hidden md:block text-xs text-neutral-400 dark:text-neutral-500 font-mono">
-            Original: {recipe.servings}s
-          </p>
-          <div className="w-full md:w-auto flex items-center justify-center">
-            {/* Mobile view: centered prominent cooking mode button */}
-            <button
-              type="button"
-              onClick={() => setIsCookingModeOpen(true)}
-              className="md:hidden w-full max-w-sm py-3 bg-accent-500 hover:bg-accent-600 dark:bg-accent-600 dark:hover:bg-accent-500 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
-            >
-              <ChefHat className="w-4 h-4" />
-              <span>Start Cooking Mode</span>
-            </button>
-            
-            {/* Desktop view: standard text link */}
-            <button
-              type="button"
-              onClick={() => setIsCookingModeOpen(true)}
-              className="hidden md:flex text-xs font-medium text-accent-600 dark:text-accent-400 hover:underline items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <ChefHat className="w-3.5 h-3.5" />
-              Cooking Mode
-            </button>
-          </div>
         </div>
       </motion.div>
 

@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Clock } from "lucide-react";
+import { Clock, Plus } from "lucide-react";
 import { Recipe } from "../types";
 import RecipeIcon from "./RecipeIcon";
 import { formatTime } from "../lib/utils";
@@ -29,47 +29,61 @@ export default function RecipeCard({ recipe, onView }: RecipeCardProps) {
   return (
     <motion.div
       onClick={() => onView(recipe)}
-      whileHover={{ y: -3, transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] } }}
+      whileHover={{ y: -4, transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] } }}
       whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
-      className="group cursor-pointer flex flex-row items-center bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-xl hover:shadow-md hover:border-neutral-200 dark:hover:border-neutral-600 transition-all overflow-hidden h-full p-2 gap-3 select-none"
+      className="group cursor-pointer flex flex-col bg-white dark:bg-neutral-900 border border-neutral-100/50 dark:border-neutral-800/50 rounded-2xl hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] hover:border-neutral-200 dark:hover:border-neutral-700 transition-all duration-500 overflow-hidden h-full select-none"
     >
       {/* Recipe Cover Thumbnail */}
-      <div className={`w-[68px] h-[68px] sm:w-[76px] sm:h-[76px] shrink-0 overflow-hidden rounded-lg relative ${hasImage ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'}`}>
+      <div className={`aspect-[16/10] w-full overflow-hidden relative ${hasImage ? 'bg-neutral-100 dark:bg-neutral-800' : 'bg-neutral-50 dark:bg-neutral-800/50'}`}>
         {hasImage ? (
           <img
             src={recipe.imageUrl}
             alt={recipe.title}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           />
         ) : (
-          <RecipeIcon recipe={recipe} className="w-full h-full group-hover:scale-108 transition-transform duration-500 ease-out" />
+          <div className="w-full h-full flex items-center justify-center">
+             <RecipeIcon recipe={recipe} className="w-16 h-16 opacity-20 group-hover:scale-110 transition-transform duration-700 ease-out" />
+          </div>
+        )}
+        
+        {/* Overlays for premium feel */}
+        <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        
+        {recipe.mealType && (
+          <div className="absolute top-3 left-3">
+             <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded-lg backdrop-blur-md shadow-sm ${getMealTypeColor(recipe.mealType)}`}>
+               {recipe.mealType}
+             </span>
+          </div>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex flex-col flex-1 py-1 pr-2 min-w-0">
-        <h3 className="font-sans font-semibold text-sm sm:text-base text-neutral-900 dark:text-neutral-50 line-clamp-2 transition-colors group-hover:text-accent-600 dark:group-hover:text-accent-400">
-          {recipe.title}
-        </h3>
+      <div className="flex flex-col flex-1 p-5 space-y-3">
+        <div className="space-y-1">
+          <h3 className="font-editorial text-xl sm:text-2xl text-neutral-900 dark:text-neutral-50 leading-tight transition-colors group-hover:text-accent-600 dark:group-hover:text-accent-400">
+            {recipe.title}
+          </h3>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
+            {recipe.description}
+          </p>
+        </div>
         
-        <div className="mt-1.5 flex items-center flex-wrap gap-x-2 gap-y-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-          <span className="flex items-center gap-1 font-medium whitespace-nowrap">
-            <Clock className="w-3 h-3" />
-            {formatTime(recipe.cookingTime)}
-          </span>
-          <span className="text-neutral-300 dark:text-neutral-600 hidden sm:inline">•</span>
-          <span className="font-medium whitespace-nowrap truncate max-w-[100px] sm:max-w-none">
-            {recipe.cuisine}
-          </span>
-          {recipe.mealType && (
-            <>
-              <span className="text-neutral-300 dark:text-neutral-600 hidden sm:inline">•</span>
-              <span className={`text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md shrink-0 ${getMealTypeColor(recipe.mealType)}`}>
-                {recipe.mealType}
-              </span>
-            </>
-          )}
+        <div className="mt-auto pt-3 flex items-center justify-between border-t border-neutral-50 dark:border-neutral-800/50">
+          <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+            <span className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5" />
+              {formatTime(recipe.cookingTime)}
+            </span>
+            <span className="w-1 h-1 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+            <span>{recipe.cuisine}</span>
+          </div>
+          
+          <div className="w-8 h-8 rounded-full border border-neutral-100 dark:border-neutral-800 flex items-center justify-center group-hover:bg-accent-500 group-hover:border-accent-500 transition-all duration-300">
+             <Plus className="w-4 h-4 text-neutral-400 group-hover:text-white transition-colors" />
+          </div>
         </div>
       </div>
     </motion.div>

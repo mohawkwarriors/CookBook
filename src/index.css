@@ -75,11 +75,11 @@ body {
 }
 
 html.dark, html.dark body, html.dark #root {
-  background-color: #131316 !important;
+  background-color: #2d2e34 !important;
 }
 
 @media (prefers-color-scheme: dark) {
   html:not(.light), html:not(.light) body, html:not(.light) #root {
-    background-color: #131316;
+    background-color: #2d2e34;
   }
 }

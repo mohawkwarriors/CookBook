@@ -642,10 +642,10 @@ export default function App() {
   });
 
   return (
-    <div className="min-h-full flex-1 bg-[#FDFBF7] dark:bg-neutral-950 flex flex-col font-sans transition-colors duration-300">
+    <div className="min-h-full flex-1 bg-[#FDFBF7] dark:bg-neutral-800 flex flex-col font-sans transition-colors duration-300">
       
       {/* Simple Clean Header */}
-      <header className="border-b border-neutral-100 dark:border-neutral-800 bg-[#FDFBF7] dark:bg-neutral-950 sticky top-0 z-10 transition-colors duration-300">
+      <header className="border-b border-neutral-100 dark:border-neutral-800 bg-[#FDFBF7] dark:bg-neutral-800 sticky top-0 z-10 transition-colors duration-300">
         {dbError && (
           <div className="w-full bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 px-4 py-2 text-sm text-center font-medium border-b border-orange-200 dark:border-orange-800/50 flex items-center justify-between">
             <span className="flex-1 text-center">{dbError}</span>
@@ -767,7 +767,7 @@ export default function App() {
                     placeholder="Search recipes..."
                     value={filters.searchQuery}
                     onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
-                    className="w-full pl-9 pr-4 py-2 bg-neutral-50 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 border-none rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-200 dark:focus:ring-neutral-700 text-sm transition-colors"
+                    className="w-full pl-9 pr-4 py-2 bg-neutral-100/80 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 border border-transparent dark:border-neutral-800/60 rounded-xl focus:outline-none focus:ring-1 focus:ring-accent-500/50 dark:focus:ring-accent-400/50 text-sm transition-colors placeholder:text-neutral-400"
                   />
                   {filters.searchQuery && (
                     <button
@@ -982,7 +982,7 @@ export default function App() {
       />
       {/* Mobile Bottom Navigation */}
       {isAdmin && (
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#FDFBF7] dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800 px-4 py-3 pb-safe flex items-center justify-around z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] transition-colors duration-300">
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#FDFBF7] dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-800 px-4 py-3 pb-safe flex items-center justify-around z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] transition-colors duration-300">
           <button
             onClick={() => setCurrentTab("recipes")}
             className={`flex flex-col items-center gap-1 ${currentTab === "recipes" ? "text-neutral-900 dark:text-neutral-50" : "text-neutral-400 dark:text-neutral-500"} transition-colors w-16`}
