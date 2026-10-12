@@ -173,12 +173,15 @@ export default function App() {
 
   useEffect(() => {
     try {
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
       if (isDarkMode) {
         document.documentElement.classList.add("dark");
         localStorage.setItem("cookbook_theme", "dark");
+        if (metaTheme) metaTheme.setAttribute("content", "#131316");
       } else {
         document.documentElement.classList.remove("dark");
         localStorage.setItem("cookbook_theme", "light");
+        if (metaTheme) metaTheme.setAttribute("content", "#FDFBF7");
       }
     } catch {
       // ignore localStorage write errors
@@ -804,7 +807,7 @@ export default function App() {
       />
       {/* Mobile Bottom Navigation */}
       {isAdmin && (
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#FDFBF7] dark:bg-neutral-800 border-t border-neutral-100 dark:border-neutral-700 px-4 py-3 pb-safe flex items-center justify-around z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] transition-colors duration-300">
+        <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-[#FDFBF7] dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800 px-4 py-3 pb-safe flex items-center justify-around z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.1)] transition-colors duration-300">
           <button
             onClick={() => setCurrentTab("recipes")}
             className={`flex flex-col items-center gap-1 ${currentTab === "recipes" ? "text-neutral-900 dark:text-neutral-50" : "text-neutral-400 dark:text-neutral-500"} transition-colors w-16`}

@@ -50,6 +50,7 @@
 html { 
   font-size: 120%; 
   background-color: #FDFBF7;
+  color-scheme: light dark;
 }
 
 body {
@@ -59,6 +60,19 @@ body {
   overscroll-behavior-y: none;
 }
 
-.dark html, .dark body {
-  background-color: #131316;
+html.dark {
+  background-color: #131316 !important;
+}
+
+html.dark body {
+  background-color: #131316 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    background-color: #131316;
+  }
+  html:not(.light) body {
+    background-color: #131316;
+  }
 }

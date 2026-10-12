@@ -18,8 +18,11 @@
     <script>
       try {
         const saved = localStorage.getItem("cookbook_theme");
-        if (saved === "dark" || (!saved && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+        const isDark = saved === "dark" || (!saved && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (isDark) {
           document.documentElement.classList.add("dark");
+          const metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) metaTheme.setAttribute("content", "#131316");
         } else {
           document.documentElement.classList.remove("dark");
         }
