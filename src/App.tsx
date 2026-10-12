@@ -17,7 +17,7 @@ import RecipeModal from "./components/RecipeModal";
 import RecipeFormModal from "./components/RecipeFormModal";
 import MealPlanner from "./components/MealPlanner";
 import RecipeBuilderGame from "./components/RecipeBuilderGame";
-import { PWAInstallButton } from "./components/PWAInstallButton";
+import { PWAInstallPopup } from "./components/PWAInstallPopup";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { APP_VERSION, BUILD_DATE, BUILD_ID } from "./version";
 import { 
@@ -33,7 +33,11 @@ import {
   X,
   Wand2,
   Moon,
-  Sun
+  Sun,
+  Download,
+  Upload,
+  RefreshCw,
+  LogOut
 } from "lucide-react";
 
 const INITIAL_FILTERS: RecipeFilters = {
@@ -194,6 +198,9 @@ export default function App() {
   const [activeRecipe, setActiveRecipe] = useState<Recipe | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
+  const [isSyncingLocal, setIsSyncingLocal] = useState(false);
   const [passcode, setPasscode] = useState("");
 
   // Auth State
@@ -207,7 +214,7 @@ export default function App() {
     (window as any).__COOKBOOK_BUILD_ID__ = BUILD_ID;
     console.log(
       `%c[Cookbook]%c Version v${APP_VERSION} (${BUILD_DATE}) [${BUILD_ID}]`,
-      "background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;",
+      "background: #059669; color: white; padding: 2px 6px; border-radius: 4px; font-weight: bold;",
       "color: inherit; font-weight: 500;"
     );
   }, []);
@@ -234,6 +241,7 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('cookbook_admin');
     setIsAdmin(false);
+    setIsAdminPanelOpen(false);
   };
 
   const handleLogoClick = () => {
@@ -244,6 +252,96 @@ export default function App() {
     setFilters(INITIAL_FILTERS);
     setShowFilters(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Export all recipes to a downloadable JSON file
+  const handleExportRecipes = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(recipes, null, 2));
+      const downloadAnchor = document.createElement("a");
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `cookbook-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      setAdminFeedback("Backup exported successfully!");
+    } catch (err) {
+      setAdminFeedback("Export failed: " + String(err));
+    }
+  };
+
+  // Import recipes from a backup JSON file directly into Firestore
+  const handleImportRecipes = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const imported = JSON.parse(event.target?.result as string);
+        if (Array.isArray(imported)) {
+          let addedCount = 0;
+          const currentTitles = new Set(recipes.map((r) => r.title.trim().toLowerCase()));
+          for (const item of imported) {
+            if (item && item.title && !currentTitles.has(item.title.trim().toLowerCase())) {
+              const { id, ...cleanItem } = item;
+              await addDoc(collection(db, "recipes"), {
+                ...cleanItem,
+                createdAt: cleanItem.createdAt || new Date().toISOString(),
+              });
+              currentTitles.add(cleanItem.title.trim().toLowerCase());
+              addedCount++;
+            }
+          }
+          setAdminFeedback(`Imported ${addedCount} recipes successfully into database!`);
+        } else {
+          setAdminFeedback("Invalid JSON format: expected an array of recipes.");
+        }
+      } catch {
+        setAdminFeedback("Error parsing backup JSON file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  // Check Local Storage for any un-synced recipes and upload them to Firestore
+  const handleSyncLocalStorage = async () => {
+    setIsSyncingLocal(true);
+    try {
+      const stored = localStorage.getItem("zest_recipes");
+      if (!stored) {
+        setAdminFeedback("No local recipes cache found. Cloud is currently up to date!");
+        setIsSyncingLocal(false);
+        return;
+      }
+      const localList = JSON.parse(stored) as Recipe[];
+      if (!Array.isArray(localList)) {
+        setAdminFeedback("Local recipes cache is empty.");
+        setIsSyncingLocal(false);
+        return;
+      }
+      const cloudTitles = new Set(recipes.map((r) => r.title.trim().toLowerCase()));
+      const cloudIds = new Set(recipes.map((r) => r.id));
+      const missing = localList.filter(
+        (lr) => lr && lr.title && !cloudIds.has(lr.id) && !cloudTitles.has(lr.title.trim().toLowerCase())
+      );
+      if (missing.length === 0) {
+        setAdminFeedback("All recipes in local cache are already synced to Firestore!");
+      } else {
+        for (const item of missing) {
+          const { id, ...cleanItem } = item;
+          await addDoc(collection(db, "recipes"), {
+            ...cleanItem,
+            createdAt: cleanItem.createdAt || new Date().toISOString(),
+          });
+        }
+        setAdminFeedback(`Recovered and uploaded ${missing.length} local recipe(s) to Firestore!`);
+      }
+    } catch (err) {
+      setAdminFeedback("Sync error: " + String(err));
+    } finally {
+      setIsSyncingLocal(false);
+    }
   };
 
   // Local Storage loaders (Fallback)
@@ -280,7 +378,7 @@ export default function App() {
     setLoadingMeals(false);
   };
 
-  // Sync to Firestore with LocalStorage Fallback
+  // Sync to Firestore with LocalStorage Fallback & Auto-Recovery
   useEffect(() => {
     let unsubscribeRecipes = () => {};
     let unsubscribeMealPlan = () => {};
@@ -311,6 +409,37 @@ export default function App() {
               }
             });
           } else if (list.length > 0) {
+            // Auto-recover any recipes stored in localStorage that are not in Firestore
+            try {
+              const cached = localStorage.getItem("zest_recipes");
+              if (cached) {
+                const localList = JSON.parse(cached) as Recipe[];
+                if (Array.isArray(localList)) {
+                  const cloudTitles = new Set(list.map((r) => r.title.trim().toLowerCase()));
+                  const cloudIds = new Set(list.map((r) => r.id));
+                  const missingInCloud = localList.filter(
+                    (lr) => lr && lr.title && !cloudIds.has(lr.id) && !cloudTitles.has(lr.title.trim().toLowerCase())
+                  );
+                  if (missingInCloud.length > 0) {
+                    console.log(`[Cookbook] Found ${missingInCloud.length} local recipe(s) not in cloud. Auto-uploading...`);
+                    missingInCloud.forEach(async (missingRecipe) => {
+                      const { id, ...cleanRecipe } = missingRecipe;
+                      try {
+                        await addDoc(collection(db, "recipes"), {
+                          ...cleanRecipe,
+                          createdAt: cleanRecipe.createdAt || new Date().toISOString(),
+                        });
+                      } catch (uploadErr) {
+                        console.warn("Could not sync local recipe to Firestore:", uploadErr);
+                      }
+                    });
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn("Local storage check error:", e);
+            }
+
             // Strip out AI generated images so we fall back to icons
             list.forEach(async (r) => {
               if (r.imageUrl && (r.imageUrl.includes("pollinations.ai") || r.imageUrl.includes("unsplash.com") || r.imageUrl.includes("loremflickr.com") || r.imageUrl.includes("picsum.photos"))) {
@@ -327,6 +456,12 @@ export default function App() {
               }
             });
           }
+
+          // Always cache the cloud recipes into local storage as an offline mirror
+          try {
+            localStorage.setItem("zest_recipes", JSON.stringify(list));
+          } catch {}
+
           setRecipes(list);
           setLoadingRecipes(false);
           setIsUsingLocalStorage(false);
@@ -350,6 +485,9 @@ export default function App() {
           snapshot.forEach((doc) => {
             list.push({ id: doc.id, ...doc.data() } as MealPlanEntry);
           });
+          try {
+            localStorage.setItem("zest_meals", JSON.stringify(list));
+          } catch {}
           setMealPlan(list);
           setLoadingMeals(false);
         },
@@ -397,11 +535,21 @@ export default function App() {
       if (editingRecipe && editingRecipe.id) {
         const docRef = doc(db, "recipes", editingRecipe.id);
         await updateDoc(docRef, { ...recipeData });
+        const updated = recipes.map((r) =>
+          r.id === editingRecipe.id ? { ...recipeData, id: editingRecipe.id, createdAt: editingRecipe.createdAt } : r
+        );
+        try {
+          localStorage.setItem("zest_recipes", JSON.stringify(updated));
+        } catch {}
       } else {
-        await addDoc(collection(db, "recipes"), {
+        const newDoc = await addDoc(collection(db, "recipes"), {
           ...recipeData,
           createdAt: new Date().toISOString(),
         });
+        const updated = [{ ...recipeData, id: newDoc.id, createdAt: new Date().toISOString() }, ...recipes];
+        try {
+          localStorage.setItem("zest_recipes", JSON.stringify(updated));
+        } catch {}
       }
     }
     setEditingRecipe(null);
@@ -420,6 +568,10 @@ export default function App() {
     } else {
       // Cloud Firestore
       await deleteDoc(doc(db, "recipes", id));
+      const updated = recipes.filter((r) => r.id !== id);
+      try {
+        localStorage.setItem("zest_recipes", JSON.stringify(updated));
+      } catch {}
       // Clean up linked meals from database
       const linkedMeals = mealPlan.filter((m) => m.recipeId === id);
       for (const meal of linkedMeals) {
@@ -515,26 +667,27 @@ export default function App() {
             <button 
               type="button"
               onClick={handleLogoClick}
-              onDoubleClick={isAdmin ? handleLogout : handleLogin}
+              onDoubleClick={isAdmin ? () => setIsAdminPanelOpen(true) : handleLogin}
               className="flex items-center gap-1.5 select-none cursor-pointer text-left focus:outline-none group bg-transparent border-0 p-0"
-              title={isAdmin ? `Admin Active • v${APP_VERSION} (${BUILD_DATE})\nDouble-click to sign out` : "Go to recipes (Double click to sign in)"}
+              title={isAdmin ? `Admin Active • v${APP_VERSION} (${BUILD_DATE})\nDouble-click to open Data Control panel` : "Go to recipes (Double click to sign in)"}
               aria-label="Cookbook - Go back to recipe page"
             >
               <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors" />
               <h1 className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors">Cookbook</h1>
             </button>
             {isAdmin && (
-              <span 
-                className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-300/80 dark:border-neutral-700 select-none cursor-help"
-                title={`Cloudflare Sync Verification\nVersion: v${APP_VERSION}\nBuild: ${BUILD_DATE}\nBuild ID: ${BUILD_ID}`}
+              <button 
+                type="button"
+                onClick={() => setIsAdminPanelOpen(true)}
+                className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-neutral-200/80 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-300/80 dark:border-neutral-700 select-none cursor-pointer hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors"
+                title={`Cloudflare Sync Verification\nVersion: v${APP_VERSION}\nBuild: ${BUILD_DATE}\nBuild ID: ${BUILD_ID}\nClick to open Admin & Backup panel`}
               >
                 v{APP_VERSION}
-              </span>
+              </button>
             )}
           </div>
           
           <div className="flex items-center gap-2 sm:gap-4">
-            <PWAInstallButton />
             
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
@@ -866,14 +1019,152 @@ export default function App() {
           </button>
 
           {/* Discreet admin version badge for mobile phone check */}
-          <div 
-            className="flex flex-col items-center justify-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none px-1 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800"
-            title={`Build: ${BUILD_ID} (${BUILD_DATE})`}
+          <button 
+            type="button"
+            onClick={() => setIsAdminPanelOpen(true)}
+            className="flex flex-col items-center justify-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none px-1.5 py-0.5 rounded bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 cursor-pointer"
+            title={`Build: ${BUILD_ID} (${BUILD_DATE})\nTap to open Admin Panel`}
           >
             <span className="font-semibold text-[9px] text-neutral-500 dark:text-neutral-400">v{APP_VERSION}</span>
-          </div>
+          </button>
         </div>
       )}
+
+      {/* Admin Panel Modal (When authenticated) */}
+      <AnimatePresence>
+        {isAdminPanelOpen && isAdmin && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden relative"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xl font-bold text-neutral-900 dark:text-neutral-50">Admin & Data Control</h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-semibold">
+                        v{APP_VERSION}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">Manage database sync, recipes backup, and deployment status.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsAdminPanelOpen(false);
+                      setAdminFeedback(null);
+                    }}
+                    className="p-1 rounded-full text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {adminFeedback && (
+                  <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 font-medium">
+                    {adminFeedback}
+                  </div>
+                )}
+
+                {/* Cloud & Local Status Box */}
+                <div className="space-y-2 mb-5 p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/60 text-xs text-neutral-600 dark:text-neutral-300 font-mono">
+                  <div className="flex justify-between items-center">
+                    <span className="text-neutral-500 dark:text-neutral-400">Database:</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Firestore Connected
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-neutral-500 dark:text-neutral-400">Active Recipes:</span>
+                    <span className="font-semibold text-neutral-900 dark:text-neutral-100">{recipes.length} recipes</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-neutral-500 dark:text-neutral-400">Build Tag:</span>
+                    <span className="text-neutral-700 dark:text-neutral-300">{BUILD_ID}</span>
+                  </div>
+                </div>
+
+                {/* Backup & Recovery Actions */}
+                <div className="space-y-2.5">
+                  {/* Export */}
+                  <button
+                    type="button"
+                    onClick={handleExportRecipes}
+                    className="w-full flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors text-sm font-semibold text-neutral-800 dark:text-neutral-100 cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Export Recipes (JSON Backup)</span>
+                    </span>
+                    <span className="text-xs text-neutral-400 font-normal">Download</span>
+                  </button>
+
+                  {/* Import */}
+                  <label className="w-full flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors text-sm font-semibold text-neutral-800 dark:text-neutral-100 cursor-pointer">
+                    <span className="flex items-center gap-2.5">
+                      <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span>Import Recipes (From Backup JSON)</span>
+                    </span>
+                    <span className="text-xs text-neutral-400 font-normal">Upload</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportRecipes}
+                      className="hidden"
+                    />
+                  </label>
+
+                  {/* Sync Local Storage */}
+                  <button
+                    type="button"
+                    onClick={handleSyncLocalStorage}
+                    disabled={isSyncingLocal}
+                    className="w-full flex items-center justify-between p-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors text-sm font-semibold text-neutral-800 dark:text-neutral-100 cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <RefreshCw className={`w-4 h-4 text-amber-600 dark:text-amber-400 ${isSyncingLocal ? 'animate-spin' : ''}`} />
+                      <span>Check & Sync Local Storage</span>
+                    </span>
+                    <span className="text-xs text-neutral-400 font-normal">Recover</span>
+                  </button>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLogout();
+                      setIsAdminPanelOpen(false);
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:underline cursor-pointer font-medium"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Sign Out Admin
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAdminPanelOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-xs font-semibold text-neutral-700 dark:text-neutral-200 transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Login Modal */}
       <AnimatePresence>
@@ -902,7 +1193,7 @@ export default function App() {
                     value={passcode}
                     onChange={(e) => setPasscode(e.target.value)}
                     placeholder="Enter passcode..."
-                    className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 mb-4"
+                    className="w-full px-4 py-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 mb-4"
                     autoFocus
                   />
                   <div className="flex justify-end gap-3">
@@ -920,7 +1211,7 @@ export default function App() {
                     <motion.button
                       whileTap={{ scale: 0.95 }}
                       type="submit"
-                      className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white transition-colors font-medium cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors font-medium cursor-pointer"
                     >
                       Unlock
                     </motion.button>
@@ -937,6 +1228,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      <PWAInstallPopup />
       <OfflineIndicator />
     </div>
   );
