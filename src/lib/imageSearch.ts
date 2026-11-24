@@ -53,7 +53,7 @@ function isGoodFoodImageUrl(url: string, title = ""): boolean {
   if (lower.endsWith(".svg") || lower.includes(".svg/") || lower.endsWith(".pdf") || lower.endsWith(".tif")) {
     return false;
   }
-  const badWords = ["logo", "icon", "flag", "map", "diagram", "coat of arms", "portrait", "wikimedia", "commons-logo"];
+  const badWords = ["logo", "icon", "flag", "map", "diagram", "coat of arms", "portrait", "commons-logo", "wiki-logo", "treehugger", "rooster", "livestock"];
   if (badWords.some((w) => titleLower.includes(w) || lower.includes(w))) {
     return false;
   }
@@ -100,7 +100,7 @@ async function fetchWikipediaPagePhotos(query: string): Promise<StandInPhoto[]> 
     const params = new URLSearchParams({
       action: "query",
       generator: "search",
-      gsrsearch: `${query} dish OR food OR recipe`,
+      gsrsearch: query,
       gsrlimit: "6",
       prop: "pageimages",
       piprop: "thumbnail",
@@ -159,10 +159,14 @@ function buildSearchQueries(title: string, cuisine?: string): string[] {
     queries.push(title.trim());
   }
 
-  // Also try last 2 meaningful words (e.g. "Saffron Chicken Skewers" -> "Chicken Skewers")
+  // Try last 2 meaningful words (e.g. "Saffron Chicken Skewers" -> "Chicken Skewers")
   const words = cleaned.split(" ").filter((w) => w.length > 2);
   if (words.length >= 2) {
     queries.push(words.slice(-2).join(" "));
+  }
+  // Try singularized version (e.g. "Aloo Cutlets" -> "Aloo Cutlet")
+  if (cleaned.endsWith("s") && cleaned.length > 4) {
+    queries.push(cleaned.slice(0, -1));
   }
   if (cuisine && cuisine !== "All" && cuisine !== "Other" && words.length > 0) {
     queries.push(`${cuisine} ${words[words.length - 1]} food`);
@@ -192,12 +196,13 @@ export async function searchStandInPhotos(title: string, cuisine?: string, maxRe
     }
   };
 
-  // 1. Try Express backend endpoint if available (can pull broader web results too)
+  // 1. Try Express backend endpoint if available (verify JSON content-type for static hosts)
   try {
     const res = await fetch(
       `/api/search-recipe-images?q=${encodeURIComponent(trimmed)}${cuisine ? `&cuisine=${encodeURIComponent(cuisine)}` : ""}`
     );
-    if (res.ok) {
+    const contentType = res.headers.get("content-type") || "";
+    if (res.ok && contentType.includes("application/json")) {
       const data = await res.json();
       if (Array.isArray(data?.photos) && data.photos.length > 0) {
         pushUnique(data.photos);
@@ -208,17 +213,17 @@ export async function searchStandInPhotos(title: string, cuisine?: string, maxRe
     // Static host or server unavailable — fall through cleanly to direct CORS APIs
   }
 
-  // 2. Direct browser fallback: Wikipedia + Wikimedia Commons + TheMealDB
+  // 2. Direct browser fallback: Wikimedia Commons + Wikipedia + TheMealDB
   const queries = buildSearchQueries(trimmed, cuisine);
   for (const q of queries) {
     if (collected.length >= maxResults) break;
-    const [wikiPages, commons, mealdb] = await Promise.all([
-      fetchWikipediaPagePhotos(q),
-      fetchWikimediaPhotos(`${q} food`, 6),
+    const [commons, wikiPages, mealdb] = await Promise.all([
+      fetchWikimediaPhotos(q, 8),
+      fetchWikipediaPagePhotos(`${q} food OR dish`),
       collected.length < 2 ? fetchTheMealDBPhotos(q) : Promise.resolve([]),
     ]);
-    pushUnique(wikiPages);
     pushUnique(commons);
+    pushUnique(wikiPages);
     pushUnique(mealdb);
   }
 
