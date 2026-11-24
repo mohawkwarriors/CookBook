@@ -311,21 +311,6 @@ export default function App() {
     }
 
     if (parsed.length > 0) {
-      let updated = false;
-      parsed = parsed.map((r) => {
-        if (
-          r.imageUrl &&
-          (r.imageUrl.includes("pollinations.ai") ||
-            r.imageUrl.includes("unsplash.com") ||
-            r.imageUrl.includes("loremflickr.com") ||
-            r.imageUrl.includes("picsum.photos"))
-        ) {
-          updated = true;
-          return { ...r, imageUrl: "" };
-        }
-        return r;
-      });
-      if (updated) localStorage.setItem("zest_recipes", JSON.stringify(parsed));
       setRecipes(parsed);
     } else {
       setRecipes(PRESET_RECIPES);
@@ -357,29 +342,6 @@ export default function App() {
           snapshot.forEach((docSnap) => {
             list.push({ id: docSnap.id, ...docSnap.data() } as Recipe);
           });
-
-          if (list.length > 0) {
-            list.forEach(async (r) => {
-              if (
-                r.imageUrl &&
-                (r.imageUrl.includes("pollinations.ai") ||
-                  r.imageUrl.includes("unsplash.com") ||
-                  r.imageUrl.includes("loremflickr.com") ||
-                  r.imageUrl.includes("picsum.photos"))
-              ) {
-                r.imageUrl = "";
-                if (isAdmin) {
-                  try {
-                    await updateDoc(doc(db, "recipes", r.id!), { imageUrl: "" });
-                  } catch (e: any) {
-                    if (e?.code === "permission-denied") {
-                      setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
-                    }
-                  }
-                }
-              }
-            });
-          }
 
           try {
             localStorage.setItem("zest_recipes", JSON.stringify(list));

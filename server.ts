@@ -512,6 +512,116 @@ Provide ONLY the JSON array inside a \`\`\`json code block with no extra prose.`
   }
 });
 
+app.get("/api/search-recipe-images", async (req, res) => {
+  const q = String(req.query.q || "").trim();
+  const cuisine = String(req.query.cuisine || "").trim();
+  if (!q) {
+    res.json({ photos: [] });
+    return;
+  }
+
+  const photos: { url: string; label: string; source: string }[] = [];
+  const seen = new Set<string>();
+
+  const badWords = [
+    "logo",
+    "icon",
+    "flag",
+    "map",
+    "diagram",
+    "portrait",
+    "treehugger",
+    "stock",
+    "livestock",
+    "farm",
+    "rooster",
+    "hen",
+    "bing.com",
+    "microsoft.com",
+  ];
+
+  const addPhoto = (url: string, label: string, source: string) => {
+    if (!url || seen.has(url)) return;
+    const lower = url.toLowerCase();
+    const labelLower = label.toLowerCase();
+    if (lower.endsWith(".svg") || lower.includes(".svg/") || lower.endsWith(".pdf")) return;
+    if (badWords.some((w) => lower.includes(w) || labelLower.includes(w))) return;
+    seen.add(url);
+    photos.push({ url, label, source });
+  };
+
+  const cleaned = q
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(easy|quick|homemade|classic|best|authentic|simple|stovetop|instant pot|pressure cooker|air-fried|baked|multipurpose|style|sides)\b/gi, " ")
+    .replace(/[&/,-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim() || q;
+
+  try {
+    const [commonsRes, wikiPageRes, bingRes] = await Promise.allSettled([
+      // 1. Wikimedia Commons exact dish search (very accurate for Desi, Persian, Middle Eastern & global dishes)
+      fetch(
+        `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(
+          `${cleaned} food`
+        )}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=800&format=json`
+      ).then((r) => (r.ok ? r.json() : null)),
+
+      // 2. Wikipedia Page Images (curated hero photos of traditional dishes)
+      fetch(
+        `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
+          `${cleaned} dish OR food OR recipe`
+        )}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json`
+      ).then((r) => (r.ok ? r.json() : null)),
+
+      // 3. Bing Image Search fallback using quoted recipe query
+      fetch(
+        `https://www.bing.com/images/search?q=${encodeURIComponent(
+          `"${cleaned}" recipe plated${cuisine && cuisine !== "All" && cuisine !== "Other" ? ` ${cuisine}` : ""}`
+        )}&first=1&count=8`,
+        {
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          },
+        }
+      ).then((r) => (r.ok ? r.text() : "")),
+    ]);
+
+    if (commonsRes.status === "fulfilled" && commonsRes.value?.query?.pages) {
+      for (const page of Object.values(commonsRes.value.query.pages) as any[]) {
+        const info = page?.imageinfo?.[0];
+        if (info?.mime?.startsWith("image/") && info.mime !== "image/svg+xml") {
+          addPhoto(
+            info.thumburl || info.url,
+            (page.title || cleaned).replace(/^File:/i, "").replace(/\.[^.]+$/, ""),
+            "Wikimedia"
+          );
+        }
+      }
+    }
+
+    if (wikiPageRes.status === "fulfilled" && wikiPageRes.value?.query?.pages) {
+      for (const page of Object.values(wikiPageRes.value.query.pages) as any[]) {
+        if (page?.thumbnail?.source) {
+          addPhoto(page.thumbnail.source, page.title || cleaned, "Wikipedia");
+        }
+      }
+    }
+
+    if (photos.length < 6 && bingRes.status === "fulfilled" && bingRes.value) {
+      const matches = bingRes.value.matchAll(/murl&quot;:&quot;(https?:\/\/[^&"]+)&quot;/g);
+      for (const m of matches) {
+        addPhoto(m[1], cleaned, "Web");
+        if (photos.length >= 6) break;
+      }
+    }
+  } catch (err) {
+    console.warn("Image search error:", err);
+  }
+
+  res.json({ photos: photos.slice(0, 6) });
+});
+
 // Configure Vite integration or static file serving
 async function configureServer() {
   if (process.env.NODE_ENV !== "production") {

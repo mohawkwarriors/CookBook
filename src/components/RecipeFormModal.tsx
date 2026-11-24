@@ -1,9 +1,25 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Loader2, Plus, Trash2, ArrowRight, Search, PenTool, Link2, Check } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Trash2,
+  ArrowRight,
+  Search,
+  PenTool,
+  Link2,
+  Check,
+  Upload,
+  Sparkles,
+  X,
+  RefreshCw,
+  Image as ImageIcon,
+} from "lucide-react";
 import { Recipe, Ingredient, TopRatedRecipe } from "../types";
 import TopRatedSearch from "./TopRatedSearch";
+import RecipeIcon from "./RecipeIcon";
 import { getMealTypeButtonColor } from "../lib/utils";
+import { compressImageFile, searchStandInPhotos, StandInPhoto } from "../lib/imageSearch";
 
 interface RecipeFormModalProps {
   onClose: () => void;
@@ -39,6 +55,28 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Photo upload & stand-in suggestions state
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [standInPhotos, setStandInPhotos] = useState<StandInPhoto[]>([]);
+  const [isLoadingStandIns, setIsLoadingStandIns] = useState(false);
+  const [standInQuery, setStandInQuery] = useState("");
+  const [failedStandIns, setFailedStandIns] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadStandInPhotos = async (queryText: string, cuisineText?: string) => {
+    const q = queryText.trim();
+    if (!q) return;
+    setIsLoadingStandIns(true);
+    setFailedStandIns(new Set());
+    try {
+      const results = await searchStandInPhotos(q, cuisineText, 6);
+      setStandInPhotos(results);
+    } finally {
+      setIsLoadingStandIns(false);
+    }
+  };
+
   useEffect(() => {
     if (editingRecipe) {
       setTitle(editingRecipe.title || "");
@@ -59,7 +97,15 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       );
       setImageUrl(editingRecipe.imageUrl || "");
       setNotes(editingRecipe.notes || "");
+      setStandInQuery(editingRecipe.title || "");
+      setStandInPhotos([]);
+      setImageError(null);
       setActiveTab("manual");
+
+      // Automatically pull related stand-in photos when editing a recipe with no uploaded photo
+      if (!editingRecipe.imageUrl && editingRecipe.title) {
+        loadStandInPhotos(editingRecipe.title, editingRecipe.cuisine);
+      }
     } else {
       setTitle("");
       setDescription("");
@@ -72,11 +118,32 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       setImageUrl("");
       setNotes("");
       setUrl("");
+      setStandInQuery("");
+      setStandInPhotos([]);
+      setImageError(null);
       setActiveTab("search");
     }
     setScrapeError(null);
     setFormError(null);
   }, [editingRecipe]);
+
+  const handleImageFileSelect = async (file: File | undefined | null) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setImageError("Please choose an image file (JPG, PNG, WebP, etc.).");
+      return;
+    }
+    setIsUploadingImage(true);
+    setImageError(null);
+    try {
+      const compressedDataUrl = await compressImageFile(file, 900, 0.8);
+      setImageUrl(compressedDataUrl);
+    } catch (err: any) {
+      setImageError(err?.message || "Failed to process image. Please try another file.");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const handleSelectTopRecipe = (topRecipe: TopRatedRecipe) => {
     setTitle(topRecipe.title || "");
@@ -432,8 +499,8 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                     Cook Time (mins)
                   </label>
@@ -447,7 +514,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                     className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
                   />
                 </div>
-                <div className="sm:col-span-1">
+                <div>
                   <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                     Servings
                   </label>
@@ -461,18 +528,224 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                     className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
                   />
                 </div>
-                <div className="sm:col-span-1">
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Photo URL (Optional)
+              </div>
+            </div>
+
+            {/* Recipe Cover Photo Upload & Internet Stand-In Photos */}
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <label className="text-sm font-semibold text-foreground block">
+                    Recipe Photo
                   </label>
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
-                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload your own photo, or pick a stand-in photo from the web.
+                  </p>
                 </div>
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl("")}
+                    className="text-xs font-medium text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Remove photo</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
+                {/* 4:5 Cover Preview */}
+                <div className="sm:col-span-4">
+                  <div className="relative aspect-[4/5] w-40 sm:w-full max-w-[190px] rounded-xl overflow-hidden border border-border bg-muted">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={title || "Recipe preview"}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <RecipeIcon
+                        recipe={{
+                          title: title || "New Recipe",
+                          description,
+                          cuisine,
+                          mealType: (mealType && mealType !== "All" ? mealType : "Main") as any,
+                          cookingTime,
+                          servings,
+                          ingredients,
+                          instructions,
+                        }}
+                        variant="cover"
+                        className="w-full h-full"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Upload Dropzone + Direct URL */}
+                <div className="sm:col-span-8 space-y-3">
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleImageFileSelect(file);
+                    }}
+                    className="rounded-xl border border-dashed border-border hover:border-primary/60 bg-secondary/40 p-4 transition-colors"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        handleImageFileSelect(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-background border border-border flex items-center justify-center shrink-0">
+                          {isUploadingImage ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-primary-dark" />
+                          ) : (
+                            <Upload className="w-4 h-4 text-primary-dark" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">
+                            {isUploadingImage ? "Optimizing photo..." : "Upload your own photo"}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Drag &amp; drop or choose from your device (auto-resized)
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="h-9 px-4 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-85 transition-opacity shrink-0 cursor-pointer disabled:opacity-50"
+                      >
+                        Choose File
+                      </button>
+                    </div>
+                  </div>
+
+                  {imageError && (
+                    <p className="text-xs text-red-600 dark:text-red-400">{imageError}</p>
+                  )}
+
+                  {/* Optional Direct Image URL Input */}
+                  <div>
+                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+                      Or paste an image URL directly
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={imageUrl.startsWith("data:") ? "" : imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="w-full h-9 px-3 bg-card text-foreground border border-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Stand-In Photos Picker */}
+              <div className="rounded-2xl border border-border bg-secondary/35 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-primary-dark" />
+                    <span className="text-xs font-semibold text-foreground">
+                      Stand-In Photos from the Web
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                    <input
+                      type="text"
+                      value={standInQuery}
+                      onChange={(e) => setStandInQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          loadStandInPhotos(standInQuery || title, cuisine);
+                        }
+                      }}
+                      placeholder={title || "Search dish name..."}
+                      className="flex-1 sm:w-48 h-8 px-3 rounded-full bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => loadStandInPhotos(standInQuery || title, cuisine)}
+                      disabled={isLoadingStandIns || !(standInQuery.trim() || title.trim())}
+                      className="h-8 px-3 rounded-full border border-border bg-background hover:bg-secondary text-xs font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40"
+                    >
+                      {isLoadingStandIns ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3 h-3" />
+                      )}
+                      <span>{standInPhotos.length > 0 ? "Refresh" : "Find Photos"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {isLoadingStandIns ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="aspect-[4/5] rounded-lg bg-muted animate-pulse" />
+                    ))}
+                  </div>
+                ) : standInPhotos.filter((p) => !failedStandIns.has(p.url)).length > 0 ? (
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                    {standInPhotos
+                      .filter((p) => !failedStandIns.has(p.url))
+                      .map((photo) => {
+                        const isSelected = imageUrl === photo.url;
+                        return (
+                          <button
+                            key={photo.url}
+                            type="button"
+                            onClick={() => setImageUrl(isSelected ? "" : photo.url)}
+                            className={`group relative aspect-[4/5] rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
+                              isSelected
+                                ? "border-primary ring-2 ring-primary/30 scale-[0.98]"
+                                : "border-transparent hover:border-foreground/30"
+                            }`}
+                            title={`Use photo: ${photo.label}`}
+                          >
+                            <img
+                              src={photo.url}
+                              alt={photo.label}
+                              referrerPolicy="no-referrer"
+                              onError={() =>
+                                setFailedStandIns((prev) => new Set(prev).add(photo.url))
+                              }
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                            />
+                            {isSelected && (
+                              <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
+                                <Check className="w-3 h-3" strokeWidth={3} />
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <div className="py-4 text-center flex flex-col items-center gap-1 text-xs text-muted-foreground">
+                    <ImageIcon className="w-4 h-4 opacity-50" />
+                    <span>
+                      {title.trim()
+                        ? "Click \"Find Photos\" to pull stand-in photos for this dish."
+                        : "Enter a recipe title above, then click \"Find Photos\"."}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
