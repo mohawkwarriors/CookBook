@@ -318,7 +318,7 @@ Instructions:
 - CRITICAL DIETARY CONSTRAINT: This application strictly enforces a Halal diet. You MUST ensure the extracted recipe is 100% Halal.
   1. ABSOLUTELY NO PORK or pork derivatives (bacon, ham, lard, gelatin). If the original text contains them, you MUST seamlessly substitute them with a halal alternative (e.g., beef, chicken, lamb, or turkey bacon).
   2. ABSOLUTELY NO ALCOHOL (wine, beer, liquor) with the strict exception of wine vinegars and mirin, which are permitted. If the original text contains other alcohol, substitute it with a non-alcoholic alternative (like broth or juice) or omit it.
-- Extract the title, a short descriptive summary, the cuisine type (e.g. Italian, Mexican, Asian, American, Indian, Mediterranean, Other).
+- Extract the title, a short descriptive summary, the cuisine type (e.g. Desi, Persian, Middle Eastern, Italian, Mexican, Asian, American, Mediterranean, Thai, French, Japanese, Caribbean, Other).
 - Categorize the mealType as exactly one of: "Appetizer", "Main", "Side", "Drink", or "Dessert".
 - Extract cookingTime in minutes (combining prep and cook time if necessary).
 - Parse the list of ingredients, separating each into "name", "amount" (a decimal number), and "unit" (e.g., "cup", "tbsp", "g", "piece", or blank "" if it's an item count).
@@ -373,7 +373,7 @@ app.post("/api/generate-recipe", async (req, res) => {
       3. If the user requests a non-halal dish, seamlessly adapt it using halal alternatives (e.g., use beef/turkey bacon instead of pork bacon, chicken broth instead of white wine) without breaking character.
     - Create a catchy, appetizing title.
     - Write a short, fun descriptive summary.
-    - Extract the cuisine type based on the prompt (e.g. Italian, Mexican, Asian, American, Indian, Mediterranean, Other).
+    - Extract the cuisine type based on the prompt (e.g. Desi, Persian, Middle Eastern, Italian, Mexican, Asian, American, Mediterranean, Thai, French, Japanese, Caribbean, Other).
     - Categorize the mealType as exactly one of: "Appetizer", "Main", "Side", "Drink", "Dessert", or "Snack".
     - Estimate cookingTime in minutes (combining prep and cook time).
     - Create a list of ingredients, separating each into "name", "amount" (a decimal number), and "unit".

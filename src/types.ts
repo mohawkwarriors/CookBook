@@ -8,7 +8,7 @@ export interface Recipe {
   id?: string;
   title: string;
   description: string;
-  cuisine: string; // e.g. "Italian", "Mexican", "Asian", "American", "Indian", "Mediterranean", "Other"
+  cuisine: string; // e.g. "Desi", "Persian", "Italian", "Mexican", "Asian", "American", "Mediterranean", "Middle Eastern", "Other"
   mealType?: "Starter" | "Main" | "Side" | "Drink" | "Dessert" | "Snack";
   cookingTime: number; // in minutes
   servings: number;

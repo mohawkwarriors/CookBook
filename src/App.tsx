@@ -89,67 +89,11 @@ const getMealTypeColor = (type: string | undefined, selected: boolean) => {
 };
 
 const CUISINES = [
-  "All", "Italian", "Mexican", "Asian", "American", "Indian", "Mediterranean", 
-  "French", "Middle Eastern", "Japanese", "Thai", "Caribbean", "Other"
+  "All", "Desi", "Persian", "Middle Eastern", "American", "Italian", "Mexican",
+  "Asian", "Thai", "Mediterranean", "French", "Japanese", "Caribbean", "Other"
 ];
 
-const PRESET_RECIPES: Recipe[] = [
-  {
-    id: "preset-1",
-    title: "Saffron Lemon Garlic Butter Shrimp",
-    description: "An incredibly quick, rich, pan-seared shrimp infused with fragrant saffron threads, fresh garlic cloves, and zesty lemon butter sauce.",
-    cuisine: "Mediterranean",
-    mealType: "Main",
-    cookingTime: 15,
-    servings: 2,
-    imageUrl: "",
-    ingredients: [
-      { name: "Shrimp (peeled & deveined)", amount: 1, unit: "lb" },
-      { name: "Butter", amount: 4, unit: "tbsp" },
-      { name: "Garlic (minced)", amount: 4, unit: "cloves" },
-      { name: "Lemon juice", amount: 2, unit: "tbsp" },
-      { name: "Saffron threads", amount: 0.25, unit: "tsp" },
-      { name: "Fresh Parsley (chopped)", amount: 2, unit: "tbsp" }
-    ],
-    instructions: [
-      "In a small bowl, bloom the saffron threads in lemon juice for 5 minutes.",
-      "Melt butter in a large skillet over medium-high heat. Add minced garlic and sauté for 1 minute until fragrant.",
-      "Add shrimp to the skillet and sear for 2 minutes on one side.",
-      "Flip the shrimp, then pour in the saffron-lemon juice mixture. Sauté for another 2 minutes until shrimp are pink and cooked through.",
-      "Garnish with fresh parsley and serve warm."
-    ],
-    notes: "Serve with zucchini noodles or cauliflower rice to keep it strictly Keto!"
-  },
-  {
-    id: "preset-2",
-    title: "Spicy Creamy Vodka Pasta",
-    description: "Rich tomato and cream reduction sautéed with shallots and finished with red pepper flakes and grated Parmesan cheese.",
-    cuisine: "Italian",
-    mealType: "Main",
-    cookingTime: 25,
-    servings: 4,
-    imageUrl: "",
-    ingredients: [
-      { name: "Penne Pasta", amount: 1, unit: "lb" },
-      { name: "Olive oil", amount: 2, unit: "tbsp" },
-      { name: "Shallot (minced)", amount: 1, unit: "piece" },
-      { name: "Tomato paste", amount: 0.5, unit: "cup" },
-      { name: "Vodka", amount: 2, unit: "tbsp" },
-      { name: "Heavy whipping cream", amount: 0.75, unit: "cup" },
-      { name: "Red pepper flakes", amount: 1, unit: "tsp" },
-      { name: "Parmesan cheese (grated)", amount: 0.5, unit: "cup" }
-    ],
-    instructions: [
-      "Boil penne pasta in heavily salted water according to package directions. Save 1 cup of pasta water before draining.",
-      "In a deep saucepan, heat olive oil over medium. Cook minced shallots until translucent (3 mins).",
-      "Stir in tomato paste and red pepper flakes. Cook for 5 minutes, stirring constantly, until the paste turns a deep caramel color.",
-      "Add vodka and stir to deglaze the pan. Let simmer for 2 minutes until the alcohol smell evaporates.",
-      "Turn heat to low, stir in heavy cream until a rich orange sauce forms.",
-      "Add cooked pasta, half of the parmesan, and a splash of pasta water. Toss vigorously to emulsify the sauce. Top with remaining parmesan."
-    ],
-    notes: "You can substitute vodka with vegetable broth and lemon squeeze for an alcohol-free version."
-  }
-];
+const PRESET_RECIPES: Recipe[] = [];
 
 export default function App() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -393,53 +337,7 @@ export default function App() {
             list.push({ id: doc.id, ...doc.data() } as Recipe);
           });
           
-          if (list.length === 0 && isAdmin) {
-            // Seed presets to Firestore if empty so the database looks gorgeous immediately!
-            PRESET_RECIPES.forEach(async (p) => {
-              const { id, ...cleanPreset } = p;
-              try {
-                await addDoc(collection(db, "recipes"), {
-                  ...cleanPreset,
-                  createdAt: new Date().toISOString(),
-                });
-              } catch (e: any) {
-                if (e?.code === 'permission-denied') {
-                  setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
-                }
-              }
-            });
-          } else if (list.length > 0) {
-            // Auto-recover any recipes stored in localStorage that are not in Firestore
-            try {
-              const cached = localStorage.getItem("zest_recipes");
-              if (cached) {
-                const localList = JSON.parse(cached) as Recipe[];
-                if (Array.isArray(localList)) {
-                  const cloudTitles = new Set(list.map((r) => r.title.trim().toLowerCase()));
-                  const cloudIds = new Set(list.map((r) => r.id));
-                  const missingInCloud = localList.filter(
-                    (lr) => lr && lr.title && !cloudIds.has(lr.id) && !cloudTitles.has(lr.title.trim().toLowerCase())
-                  );
-                  if (missingInCloud.length > 0) {
-                    console.log(`[Cookbook] Found ${missingInCloud.length} local recipe(s) not in cloud. Auto-uploading...`);
-                    missingInCloud.forEach(async (missingRecipe) => {
-                      const { id, ...cleanRecipe } = missingRecipe;
-                      try {
-                        await addDoc(collection(db, "recipes"), {
-                          ...cleanRecipe,
-                          createdAt: cleanRecipe.createdAt || new Date().toISOString(),
-                        });
-                      } catch (uploadErr) {
-                        console.warn("Could not sync local recipe to Firestore:", uploadErr);
-                      }
-                    });
-                  }
-                }
-              }
-            } catch (e) {
-              console.warn("Local storage check error:", e);
-            }
-
+          if (list.length > 0) {
             // Strip out AI generated images so we fall back to icons
             list.forEach(async (r) => {
               if (r.imageUrl && (r.imageUrl.includes("pollinations.ai") || r.imageUrl.includes("unsplash.com") || r.imageUrl.includes("loremflickr.com") || r.imageUrl.includes("picsum.photos"))) {
@@ -457,7 +355,7 @@ export default function App() {
             });
           }
 
-          // Always cache the cloud recipes into local storage as an offline mirror
+          // Always mirror the authoritative cloud recipes into local storage for offline use
           try {
             localStorage.setItem("zest_recipes", JSON.stringify(list));
           } catch {}

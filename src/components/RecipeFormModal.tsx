@@ -12,8 +12,8 @@ interface RecipeFormModalProps {
 }
 
 const CUISINES = [
-  "All", "American", "Italian", "Mexican", "Asian", "Indian", "Mediterranean", 
-  "French", "Middle Eastern", "Japanese", "Thai", "Caribbean", "Other"
+  "All", "Desi", "Persian", "Middle Eastern", "American", "Italian", "Mexican",
+  "Asian", "Thai", "Mediterranean", "French", "Japanese", "Caribbean", "Other"
 ];
 
 const MEAL_TYPES = ["All", "Starter", "Main", "Side", "Drink", "Dessert", "Snack"] as const;
