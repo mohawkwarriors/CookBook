@@ -4,66 +4,69 @@
 
 :root {
   --page-bar-height: 4rem;
-  --background: #ffffff;
-  --foreground: #0a0a0a;
-  --card: #ffffff;
-  --card-foreground: #0a0a0a;
-  --popover: #ffffff;
-  --popover-foreground: #0a0a0a;
-  --primary: #5fd543;
-  --primary-dark: #258918;
-  --primary-foreground: #0a0a0a;
-  --secondary: #f5f5f5;
-  --secondary-foreground: #171717;
-  --muted: #f5f5f5;
-  --muted-foreground: #707070;
-  --accent: #f5f5f5;
-  --accent-foreground: #171717;
-  --destructive: #e40014;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #0a0a0a;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #0a0a0a;
-  --sidebar-accent: #efefef;
-  --sidebar-accent-foreground: #0a0a0a;
-  --sidebar-border: #e5e5e5;
+  /* Bespoke Hardcover Cookbook Paper & Espresso Ink (Dishoom / Zareen's / Amrikan inspired) */
+  --background: #FBF7F0;
+  --foreground: #231A14;
+  --card: #FFFDF9;
+  --card-foreground: #231A14;
+  --popover: #FFFDF9;
+  --popover-foreground: #231A14;
+  /* Burnished Saffron & Marigold Brass */
+  --primary: #C87A28;
+  --primary-dark: #9A5814;
+  --primary-foreground: #FFFDF9;
+  --secondary: #F1E9DC;
+  --secondary-foreground: #2C211A;
+  --muted: #EFE6D8;
+  --muted-foreground: #736355;
+  --accent: #EFE6D8;
+  --accent-foreground: #231A14;
+  --destructive: #B4382B;
+  --border: #E5D9C7;
+  --input: #DFD1BC;
+  --ring: #C87A28;
+  --sidebar: #F4EDE1;
+  --sidebar-foreground: #231A14;
+  --sidebar-accent: #E9DEC9;
+  --sidebar-accent-foreground: #231A14;
+  --sidebar-border: #E3D6C3;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #141414;
-  --card-foreground: #fafafa;
-  --popover: #141414;
-  --popover-foreground: #fafafa;
-  --primary: #5fd543;
-  --primary-dark: #5fd543;
-  --primary-foreground: #0a0a0a;
-  --secondary: #1f1f1f;
-  --secondary-foreground: #fafafa;
-  --muted: #1c1c1c;
-  --muted-foreground: #a1a1a1;
-  --accent: #222222;
-  --accent-foreground: #fafafa;
-  --destructive: #ff6568;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.14);
-  --ring: #fafafa;
-  --sidebar: #111111;
-  --sidebar-foreground: #fafafa;
-  --sidebar-accent: #1f1f1f;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: rgba(255, 255, 255, 0.09);
+  /* Candlelit Bombay Café / Mahogany Espresso */
+  --background: #17120F;
+  --foreground: #F5ECE0;
+  --card: #201914;
+  --card-foreground: #F5ECE0;
+  --popover: #201914;
+  --popover-foreground: #F5ECE0;
+  --primary: #DF953E;
+  --primary-dark: #E8A857;
+  --primary-foreground: #17120F;
+  --secondary: #2A211B;
+  --secondary-foreground: #F5ECE0;
+  --muted: #261E18;
+  --muted-foreground: #A89684;
+  --accent: #2E241D;
+  --accent-foreground: #F5ECE0;
+  --destructive: #E3695B;
+  --border: rgba(245, 232, 214, 0.11);
+  --input: rgba(245, 232, 214, 0.16);
+  --ring: #DF953E;
+  --sidebar: #120E0B;
+  --sidebar-foreground: #F5ECE0;
+  --sidebar-accent: #261E18;
+  --sidebar-accent-foreground: #F5ECE0;
+  --sidebar-border: rgba(245, 232, 214, 0.09);
 }
 
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Cook Well Semantic Tokens */
+  /* Bespoke Cookbook Semantic Tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -87,34 +90,32 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-destructive: var(--destructive);
 
-  /* Cook Well Signature Fresh Green Scale */
-  --color-accent-50: #f2fde9;
-  --color-accent-100: #dffac9;
-  --color-accent-200: #c0f599;
-  --color-accent-300: #96eb5e;
-  --color-accent-400: #5fd543;
-  --color-accent-500: #45b92b;
-  --color-accent-600: #2f941b;
-  --color-accent-700: #247117;
-  --color-accent-800: #205917;
-  --color-accent-900: #1d4a17;
+  /* Saffron & Marigold Brass Accent Scale */
+  --color-accent-50: #fdf8ee;
+  --color-accent-100: #f9ecd2;
+  --color-accent-200: #f2d7a4;
+  --color-accent-300: #e9bc6c;
+  --color-accent-400: #df953e;
+  --color-accent-500: #c87a28;
+  --color-accent-600: #a8601c;
+  --color-accent-700: #874917;
+  --color-accent-800: #6f3c18;
+  --color-accent-900: #5c3317;
 
-  /* Crisp True Neutral Scale (Zero Blue Cast) */
-  --color-neutral-50: #fafafa;
-  --color-neutral-100: #f5f5f5;
-  --color-neutral-200: #e5e5e5;
-  --color-neutral-300: #d4d4d4;
-  --color-neutral-400: #a1a1a1;
-  --color-neutral-500: #707070;
-  --color-neutral-600: #525252;
-  --color-neutral-700: #383838;
-  --color-neutral-800: #1f1f1f;
-  --color-neutral-900: #141414;
-  --color-neutral-950: #0a0a0a;
+  /* Warm Stone / Parchment Neutral Scale */
+  --color-neutral-50: #fbf7f0;
+  --color-neutral-100: #f4ede1;
+  --color-neutral-200: #e5d9c7;
+  --color-neutral-300: #d1c0a8;
+  --color-neutral-400: #a89684;
+  --color-neutral-500: #736355;
+  --color-neutral-600: #56483d;
+  --color-neutral-700: #3c3129;
+  --color-neutral-800: #261e18;
+  --color-neutral-900: #1b1511;
+  --color-neutral-950: #120e0b;
 }
 
-*,
-html,
 body,
 button,
 input,
@@ -154,7 +155,7 @@ body {
   background-color: var(--background);
 }
 
-/* Subtle custom scrollbars matching Cook Well minimalism */
+/* Subtle custom scrollbars */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -163,12 +164,17 @@ body {
   scrollbar-width: none;
 }
 
-/* Editorial card grain texture for photo-less recipe covers */
+/* Bespoke cotton-paper weave texture for photo-less recipe book plates */
 .editorial-cover-grain {
-  background-image: radial-gradient(rgba(10, 10, 10, 0.045) 1px, transparent 0);
-  background-size: 16px 16px;
+  background-image:
+    radial-gradient(rgba(74, 52, 34, 0.055) 1px, transparent 0),
+    linear-gradient(135deg, rgba(255, 253, 249, 0.35) 0%, rgba(168, 124, 72, 0.05) 100%);
+  background-size: 14px 14px, 100% 100%;
 }
 
 .dark .editorial-cover-grain {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 0);
+  background-image:
+    radial-gradient(rgba(245, 232, 214, 0.06) 1px, transparent 0),
+    linear-gradient(135deg, rgba(255, 240, 215, 0.04) 0%, rgba(0, 0, 0, 0.16) 100%);
+  background-size: 14px 14px, 100% 100%;
 }

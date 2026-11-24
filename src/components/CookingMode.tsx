@@ -468,7 +468,7 @@ export default function CookingMode({
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   All {totalSteps} steps complete
                 </p>
-                <h3 className="text-3xl font-semibold tracking-tight text-foreground">
+                <h3 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
                   Time to eat.
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">

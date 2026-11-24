@@ -375,7 +375,7 @@ export default function RecipeModal({
                   </div>
 
                   <div className="space-y-3">
-                    <h1 className="text-3xl sm:text-4xl md:text-[42px] font-semibold text-foreground tracking-[-0.025em] leading-[1.12]">
+                    <h1 className="font-serif text-4xl sm:text-5xl md:text-[52px] font-semibold text-foreground tracking-[-0.015em] leading-[1.06]">
                       {recipe.title}
                     </h1>
                     {recipe.description && (
@@ -453,7 +453,7 @@ export default function RecipeModal({
                       }}
                       className="flex items-center gap-2 text-left md:cursor-default cursor-pointer"
                     >
-                      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                      <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
                         Ingredients
                       </h2>
                       <ChevronDown
@@ -587,7 +587,7 @@ export default function RecipeModal({
                 {/* Right Column: Method / Instructions */}
                 <div className="md:col-span-7 lg:col-span-8 pt-2 md:pt-8 space-y-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                    <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
                       Method
                     </h2>
                     <span className="text-xs font-mono tabular-nums text-muted-foreground">

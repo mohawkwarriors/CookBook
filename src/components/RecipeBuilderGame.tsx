@@ -160,7 +160,7 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
           transition={{ duration: 0.2 }}
           className="flex-1 flex flex-col justify-center space-y-8"
         >
-          <h2 className="text-3xl sm:text-4xl font-semibold text-foreground tracking-[-0.025em] leading-tight text-center">
+          <h2 className="font-serif text-4xl sm:text-5xl font-semibold text-foreground tracking-[-0.015em] leading-tight text-center">
             {question.title}
           </h2>
 

@@ -137,11 +137,11 @@ export default function App() {
       if (isDarkMode) {
         document.documentElement.classList.add("dark");
         localStorage.setItem("cookbook_theme", "dark");
-        if (metaTheme) metaTheme.setAttribute("content", "#0a0a0a");
+        if (metaTheme) metaTheme.setAttribute("content", "#17120F");
       } else {
         document.documentElement.classList.remove("dark");
         localStorage.setItem("cookbook_theme", "light");
-        if (metaTheme) metaTheme.setAttribute("content", "#ffffff");
+        if (metaTheme) metaTheme.setAttribute("content", "#FBF7F0");
       }
     } catch {
       // ignore localStorage write errors
@@ -748,13 +748,17 @@ export default function App() {
               : "Cookbook — Home (Double-click to sign in)"
           }
         >
-          <span className="w-7 h-7 rounded-lg bg-foreground text-background flex items-center justify-center relative shrink-0">
-            <span className="text-xs font-bold tracking-tighter">CB</span>
-            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary border-2 border-sidebar" />
+          <span className="w-8 h-8 rounded-full bg-primary/15 border border-primary/40 text-primary-dark flex items-center justify-center shrink-0">
+            <span className="font-serif italic text-base font-bold leading-none">C</span>
           </span>
-          <span className="text-[17px] font-bold tracking-[-0.03em] text-foreground">
-            Cookbook
-          </span>
+          <div className="flex flex-col">
+            <span className="font-serif text-[22px] font-semibold tracking-[-0.01em] text-foreground leading-none">
+              Cookbook
+            </span>
+            <span className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-0.5">
+              Kitchen Archive
+            </span>
+          </div>
         </button>
 
         <button
@@ -1095,7 +1099,7 @@ export default function App() {
           </button>
 
           {/* Page Title */}
-          <h1 className="truncate text-lg sm:text-xl font-medium tracking-[-0.02em] text-foreground">
+          <h1 className="font-serif truncate text-2xl sm:text-[28px] font-semibold tracking-[-0.01em] text-foreground leading-none">
             {pageTitle}
           </h1>
 

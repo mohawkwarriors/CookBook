@@ -44,7 +44,7 @@ export default function RecipeCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-foreground truncate group-hover:underline underline-offset-2 decoration-foreground/30">
+          <h3 className="font-serif text-[17px] font-semibold text-foreground truncate group-hover:text-primary-dark transition-colors">
             {recipe.title}
           </h3>
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -159,7 +159,7 @@ export default function RecipeCard({
 
       {/* Borderless Editorial Text + Food Category Color Tag */}
       <div className="flex flex-col gap-1.5 pt-2.5 px-0.5">
-        <h3 className="text-[14px] sm:text-[15px] font-medium text-foreground leading-snug line-clamp-2 group-hover:underline decoration-foreground/30 underline-offset-2">
+        <h3 className="font-serif text-[18px] sm:text-[19px] font-semibold text-foreground leading-[1.2] tracking-[-0.01em] line-clamp-2 group-hover:text-primary-dark transition-colors">
           {recipe.title}
         </h3>
         <div className="flex items-center flex-wrap gap-1.5 text-xs text-muted-foreground">
