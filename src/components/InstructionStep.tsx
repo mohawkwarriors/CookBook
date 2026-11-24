@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Check, Play, Pause, Square, Clock } from "lucide-react";
+import { Check, Play, Pause, RotateCcw, Clock } from "lucide-react";
 
 interface InstructionStepProps {
   key?: React.Key;
@@ -40,26 +40,32 @@ const formatTime = (totalSeconds: number) => {
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  
+
   if (h > 0) {
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 };
 
-export default function InstructionStep({ step, idx, isCompleted, isParallel, onToggleComplete }: InstructionStepProps) {
+export default function InstructionStep({
+  step,
+  idx,
+  isCompleted,
+  isParallel,
+  onToggleComplete,
+}: InstructionStepProps) {
   const initialTime = extractTimeInSeconds(step);
-  
+
   const [timeLeft, setTimeLeft] = useState(initialTime || 0);
-  const [timerState, setTimerState] = useState<'idle' | 'running' | 'paused'>('idle');
+  const [timerState, setTimerState] = useState<"idle" | "running" | "paused">("idle");
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (timerState === 'running' && timeLeft > 0) {
+    if (timerState === "running" && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(prev => {
+        setTimeLeft((prev) => {
           if (prev <= 1) {
-            setTimerState('idle');
+            setTimerState("idle");
             return 0;
           }
           return prev - 1;
@@ -74,110 +80,119 @@ export default function InstructionStep({ step, idx, isCompleted, isParallel, on
     if (timeLeft === 0 && initialTime) {
       setTimeLeft(initialTime);
     }
-    setTimerState('running');
+    setTimerState("running");
   };
 
   const handlePause = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTimerState('paused');
+    setTimerState("paused");
   };
 
   const handleStop = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setTimerState('idle');
+    setTimerState("idle");
     setTimeLeft(initialTime || 0);
   };
 
-  const isTimerActive = timerState !== 'idle' || timeLeft !== initialTime;
+  const isTimerActive = timerState !== "idle" || timeLeft !== initialTime;
   const isTimerRed = isTimerActive && timeLeft <= 5;
   const isTimerYellow = isTimerActive && timeLeft <= 30 && !isTimerRed;
 
   return (
-    <motion.div 
-      className="relative flex flex-col items-start group cursor-pointer w-full select-none"
+    <motion.div
+      className={`group cursor-pointer w-full select-none rounded-2xl transition-colors ${
+        isParallel
+          ? "p-4 border border-border bg-secondary/40 hover:bg-secondary/70"
+          : "py-4 px-3 -mx-3 hover:bg-secondary/50"
+      }`}
       onClick={onToggleComplete}
-      whileTap={{ scale: 0.995 }}
+      whileTap={{ scale: 0.996 }}
     >
-      {/* Node & Content Layout */}
-      <div className="w-full flex gap-6 md:gap-8">
-        <div className="flex flex-col items-center shrink-0">
-          <motion.div 
-            animate={{ 
-              scale: isCompleted ? [1, 1.25, 1] : 1,
-            }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className={`w-10 h-10 rounded-full border-[6px] border-[#FDFBF7] dark:border-neutral-800 flex items-center justify-center transition-all duration-500 relative z-10 ${
-            isCompleted 
-              ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
-              : "bg-neutral-900 dark:bg-neutral-50 text-white dark:text-neutral-900"
-          }`}>
-            {isCompleted ? <Check className="w-4 h-4" strokeWidth={4} /> : <span className="text-sm font-bold">{idx + 1}</span>}
-          </motion.div>
-        </div>
+      <div className="flex items-start gap-4">
+        {/* Step Number / Completed Check Circle */}
+        <motion.div
+          animate={{ scale: isCompleted ? [1, 1.18, 1] : 1 }}
+          transition={{ duration: 0.2 }}
+          className={`mt-0.5 w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold tabular-nums transition-all ${
+            isCompleted
+              ? "bg-primary text-primary-foreground border border-primary"
+              : "bg-foreground text-background border border-foreground"
+          }`}
+        >
+          {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : idx + 1}
+        </motion.div>
 
-        <div className="flex-1 pb-10">
-          <div className="space-y-4">
-            <p className={`text-base md:text-lg leading-relaxed transition-all duration-500 ${
-              isCompleted 
-                ? "text-neutral-400 dark:text-neutral-600 line-through" 
-                : "text-neutral-800 dark:text-neutral-100"
-            }`}>
-              {step}
-            </p>
+        <div className="flex-1 min-w-0 space-y-3">
+          {isParallel && (
+            <span className="inline-block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              In Parallel
+            </span>
+          )}
+          <p
+            className={`text-[15px] leading-relaxed transition-colors ${
+              isCompleted
+                ? "text-muted-foreground/60 line-through"
+                : "text-foreground/90"
+            }`}
+          >
+            {step}
+          </p>
 
-            {/* Timer UI */}
-            {initialTime !== null && !isCompleted && (
-              <div 
-                className={`inline-flex items-center gap-4 py-2 px-4 rounded-xl border transition-all duration-300 shadow-sm ${
-                  isTimerRed 
-                    ? "border-red-200 bg-red-50 text-red-600 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400" 
-                    : isTimerYellow
-                    ? "border-yellow-200 bg-yellow-50 text-yellow-600 dark:border-yellow-900/40 dark:bg-yellow-900/20 dark:text-yellow-400"
-                    : "border-neutral-100 bg-white dark:border-neutral-800 dark:bg-neutral-900/50 text-neutral-600 dark:text-neutral-400"
-                }`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 opacity-50" />
-                  <span className="font-editorial text-xl font-bold tabular-nums tracking-tight">
-                    {formatTime(timeLeft)}
-                  </span>
-                </div>
-                
-                <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
-                
-                <div className="flex items-center gap-1">
-                  {timerState === 'running' ? (
-                    <button 
-                      onClick={handlePause}
-                      className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                      title="Pause"
-                    >
-                      <Pause className="w-4 h-4 fill-current" />
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={handleStart}
-                      className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-accent-600 transition-colors"
-                      title={timeLeft === initialTime ? "Start" : "Resume"}
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                    </button>
-                  )}
+          {/* Inline Pill Timer */}
+          {initialTime !== null && !isCompleted && (
+            <div
+              className={`inline-flex items-center gap-2.5 py-1.5 pl-3 pr-2 rounded-full border text-xs transition-all ${
+                isTimerRed
+                  ? "border-red-300 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-400"
+                  : isTimerYellow
+                  ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-400"
+                  : timerState === "running"
+                  ? "border-primary/60 bg-accent-50 text-foreground dark:bg-accent-900/20"
+                  : "border-border bg-card text-foreground"
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="font-mono text-sm font-semibold tabular-nums">
+                {formatTime(timeLeft)}
+              </span>
 
-                  {timeLeft !== initialTime && (
-                    <button 
-                      onClick={handleStop}
-                      className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 transition-colors"
-                      title="Reset"
-                    >
-                      <Square className="w-4 h-4 fill-current" />
-                    </button>
-                  )}
-                </div>
+              <div className="h-3.5 w-px bg-border" />
+
+              <div className="flex items-center gap-1">
+                {timerState === "running" ? (
+                  <button
+                    type="button"
+                    onClick={handlePause}
+                    className="w-6 h-6 rounded-full bg-foreground text-background flex items-center justify-center hover:opacity-85 transition-opacity cursor-pointer"
+                    title="Pause timer"
+                  >
+                    <Pause className="w-3 h-3 fill-current" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleStart}
+                    className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:brightness-95 transition-all cursor-pointer"
+                    title={timeLeft === initialTime ? "Start timer" : "Resume timer"}
+                  >
+                    <Play className="w-3 h-3 fill-current ml-0.5" />
+                  </button>
+                )}
+
+                {timeLeft !== initialTime && (
+                  <button
+                    type="button"
+                    onClick={handleStop}
+                    className="w-6 h-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"
+                    title="Reset timer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

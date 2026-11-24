@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Loader2, Plus, Trash2, ArrowRight, Search, PenTool, Link2, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, ArrowRight, Search, PenTool, Link2, Check } from "lucide-react";
 import { Recipe, Ingredient, TopRatedRecipe } from "../types";
 import TopRatedSearch from "./TopRatedSearch";
+import { getMealTypeButtonColor } from "../lib/utils";
 
 interface RecipeFormModalProps {
   onClose: () => void;
@@ -28,7 +29,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cuisine, setCuisine] = useState("American");
-  const [mealType, setMealType] = useState<typeof MEAL_TYPES[number] | "">("Main");
+  const [mealType, setMealType] = useState<(typeof MEAL_TYPES)[number] | "">("Main");
   const [cookingTime, setCookingTime] = useState<number>(30);
   const [servings, setServings] = useState<number>(4);
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: "", amount: 1, unit: "" }]);
@@ -38,7 +39,6 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Populate form if editing
   useEffect(() => {
     if (editingRecipe) {
       setTitle(editingRecipe.title || "");
@@ -48,13 +48,13 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       setCookingTime(editingRecipe.cookingTime || 30);
       setServings(editingRecipe.servings || 4);
       setIngredients(
-        editingRecipe.ingredients && editingRecipe.ingredients.length > 0 
-          ? editingRecipe.ingredients 
+        editingRecipe.ingredients && editingRecipe.ingredients.length > 0
+          ? editingRecipe.ingredients
           : [{ name: "", amount: 1, unit: "" }]
       );
       setInstructions(
-        editingRecipe.instructions && editingRecipe.instructions.length > 0 
-          ? editingRecipe.instructions 
+        editingRecipe.instructions && editingRecipe.instructions.length > 0
+          ? editingRecipe.instructions
           : [""]
       );
       setImageUrl(editingRecipe.imageUrl || "");
@@ -86,19 +86,19 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
     setCookingTime(topRecipe.cookingTime || 30);
     setServings(topRecipe.servings || 4);
     setIngredients(
-      topRecipe.ingredients && topRecipe.ingredients.length > 0 
-        ? topRecipe.ingredients 
+      topRecipe.ingredients && topRecipe.ingredients.length > 0
+        ? topRecipe.ingredients
         : [{ name: "", amount: 1, unit: "" }]
     );
     setInstructions(
-      topRecipe.instructions && topRecipe.instructions.length > 0 
-        ? topRecipe.instructions 
+      topRecipe.instructions && topRecipe.instructions.length > 0
+        ? topRecipe.instructions
         : [""]
     );
-    
+
     let combinedNotes = topRecipe.notes || "";
     if (topRecipe.keyTechnique) {
-      combinedNotes = combinedNotes 
+      combinedNotes = combinedNotes
         ? `${combinedNotes}\n\nChef's Secret Technique: ${topRecipe.keyTechnique}`
         : `Chef's Secret Technique: ${topRecipe.keyTechnique}`;
     }
@@ -110,15 +110,13 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
     setNotes(combinedNotes);
     setImageUrl(topRecipe.imageUrl || "");
     setUrl(topRecipe.sourceUrl || "");
-    
-    // Smoothly jump to manual view so user can review and save
     setActiveTab("manual");
   };
 
   const handleQuickSaveTopRecipe = async (topRecipe: TopRatedRecipe) => {
     let combinedNotes = topRecipe.notes || "";
     if (topRecipe.keyTechnique) {
-      combinedNotes = combinedNotes 
+      combinedNotes = combinedNotes
         ? `${combinedNotes}\n\nChef's Secret: ${topRecipe.keyTechnique}`
         : `Chef's Secret: ${topRecipe.keyTechnique}`;
     }
@@ -128,13 +126,14 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
         : `Source: ${topRecipe.source}`;
     }
 
-    const safeIngredients = topRecipe.ingredients && topRecipe.ingredients.length > 0 
-      ? topRecipe.ingredients.map(i => ({
-          name: i.name || "Ingredient",
-          amount: typeof i.amount === "number" ? i.amount : 0,
-          unit: i.unit || ""
-        }))
-      : [{ name: "Main ingredient", amount: 1, unit: "serving" }];
+    const safeIngredients =
+      topRecipe.ingredients && topRecipe.ingredients.length > 0
+        ? topRecipe.ingredients.map((i) => ({
+            name: i.name || "Ingredient",
+            amount: typeof i.amount === "number" ? i.amount : 0,
+            unit: i.unit || "",
+          }))
+        : [{ name: "Main ingredient", amount: 1, unit: "serving" }];
 
     const recipeToSave: any = {
       title: topRecipe.title,
@@ -144,10 +143,13 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       cookingTime: topRecipe.cookingTime || 30,
       servings: topRecipe.servings || 4,
       ingredients: safeIngredients,
-      instructions: topRecipe.instructions && topRecipe.instructions.length > 0 ? topRecipe.instructions : ["Follow chef instructions."],
+      instructions:
+        topRecipe.instructions && topRecipe.instructions.length > 0
+          ? topRecipe.instructions
+          : ["Follow chef instructions."],
       imageUrl: topRecipe.imageUrl || "",
       sourceUrl: topRecipe.sourceUrl || "",
-      notes: combinedNotes || ""
+      notes: combinedNotes || "",
     };
 
     if (topRecipe.nutrition) {
@@ -188,18 +190,17 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       setCookingTime(parsed.cookingTime || 30);
       setServings(parsed.servings || 4);
       setIngredients(
-        parsed.ingredients && parsed.ingredients.length > 0 
-          ? parsed.ingredients 
+        parsed.ingredients && parsed.ingredients.length > 0
+          ? parsed.ingredients
           : [{ name: "", amount: 1, unit: "" }]
       );
       setInstructions(
-        parsed.instructions && parsed.instructions.length > 0 
-          ? parsed.instructions 
+        parsed.instructions && parsed.instructions.length > 0
+          ? parsed.instructions
           : [""]
       );
       setNotes(parsed.notes || "");
-      setImageUrl(parsed.imageUrl || ""); 
-      
+      setImageUrl(parsed.imageUrl || "");
       setActiveTab("manual");
     } catch (err: any) {
       console.error("Scraping error:", err);
@@ -209,14 +210,8 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
     }
   };
 
-  const handleAddIngredient = () => {
-    setIngredients((prev) => [...prev, { name: "", amount: 1, unit: "" }]);
-  };
-
-  const handleRemoveIngredient = (index: number) => {
-    setIngredients((prev) => prev.filter((_, i) => i !== index));
-  };
-
+  const handleAddIngredient = () => setIngredients((prev) => [...prev, { name: "", amount: 1, unit: "" }]);
+  const handleRemoveIngredient = (index: number) => setIngredients((prev) => prev.filter((_, i) => i !== index));
   const handleIngredientChange = (index: number, field: keyof Ingredient, value: string | number) => {
     setIngredients((prev) => {
       const next = [...prev];
@@ -225,14 +220,8 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
     });
   };
 
-  const handleAddInstruction = () => {
-    setInstructions((prev) => [...prev, ""]);
-  };
-
-  const handleRemoveInstruction = (index: number) => {
-    setInstructions((prev) => prev.filter((_, i) => i !== index));
-  };
-
+  const handleAddInstruction = () => setInstructions((prev) => [...prev, ""]);
+  const handleRemoveInstruction = (index: number) => setInstructions((prev) => prev.filter((_, i) => i !== index));
   const handleInstructionChange = (index: number, value: string) => {
     setInstructions((prev) => {
       const next = [...prev];
@@ -258,7 +247,6 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       .map((i) => i.trim());
 
     setFormError(null);
-
     if (filteredIngredients.length === 0) {
       setFormError("Please add at least one ingredient.");
       return;
@@ -295,83 +283,47 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   };
 
   return (
-    <div className="w-full sm:max-w-4xl mx-auto bg-[#FDFBF7] dark:bg-neutral-700 sm:bg-white sm:dark:bg-neutral-700 sm:rounded-2xl sm:border border-neutral-200/80 dark:border-neutral-700 sm:shadow-sm flex flex-col sm:mb-8">
-      {/* Responsive Header - Only show when editing to save space on Add Recipe page */}
-      {editingRecipe && (
-        <div className="shrink-0 flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-neutral-100 dark:border-neutral-800">
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-50">
-              Edit Recipe
-            </h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Update your recipe details below
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Segmented Mode Switcher (Equal 1/3 columns, highly touch-friendly on mobile) */}
+    <div className="w-full max-w-4xl mx-auto space-y-6 pb-12">
+      {/* Mode Switcher */}
       {!editingRecipe && (
-        <div className="shrink-0 px-3 sm:px-6 pt-2.5 sm:pt-3 pb-2.5 sm:pb-2 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-700/30">
-          <div className="grid grid-cols-3 gap-1 p-1 bg-neutral-200/70 dark:bg-neutral-700 rounded-xl text-xs font-medium w-full max-w-md mx-auto">
-            <motion.button
-              id="tab-search"
-              type="button"
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveTab("search")}
-              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none ${
-                activeTab === "search"
-                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 shadow-xs font-bold"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
-              }`}
-            >
-              <Search className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-amber-500 shrink-0" />
-              <span className="hidden sm:inline truncate">Search</span>
-            </motion.button>
-
-            <motion.button
-              id="tab-scraper"
-              type="button"
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveTab("scraper")}
-              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none ${
-                activeTab === "scraper"
-                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 shadow-xs font-bold"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
-              }`}
-            >
-              <Link2 className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-blue-500 shrink-0" />
-              <span className="hidden sm:inline truncate">Paste URL</span>
-            </motion.button>
-
-            <motion.button
-              id="tab-manual"
-              type="button"
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setActiveTab("manual")}
-              className={`h-10 sm:h-8 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 rounded-lg transition-all cursor-pointer select-none ${
-                activeTab === "manual"
-                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-50 shadow-xs font-bold"
-                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200"
-              }`}
-            >
-              <PenTool className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
-              <span className="hidden sm:inline truncate">Manual</span>
-            </motion.button>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
+          <div className="inline-flex items-center p-1 rounded-full bg-secondary border border-border/60 w-full sm:w-auto">
+            {[
+              { id: "search", label: "Discover", Icon: Search },
+              { id: "scraper", label: "Import URL", Icon: Link2 },
+              { id: "manual", label: "Write Manually", Icon: PenTool },
+            ].map(({ id, label, Icon }) => {
+              const active = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  id={`tab-${id}`}
+                  type="button"
+                  onClick={() => setActiveTab(id as any)}
+                  className={`flex-1 sm:flex-initial h-9 px-4 rounded-full text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    active
+                      ? "bg-foreground text-background shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Main Tab Views */}
-      <div className="p-3.5 sm:p-6 pb-20 sm:pb-6">
-        <AnimatePresence mode="wait">
+      {/* Main Content */}
+      <AnimatePresence mode="wait">
         {activeTab === "search" && !editingRecipe ? (
           <motion.div
             key="tab-search-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
+            transition={{ duration: 0.16 }}
           >
             <TopRatedSearch
               onSelectRecipe={handleSelectTopRecipe}
@@ -379,21 +331,20 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             />
           </motion.div>
         ) : activeTab === "scraper" && !editingRecipe ? (
-          /* Simplified URL Import View - Mobile Optimized */
           <motion.div
             key="tab-scraper-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="max-w-xl mx-auto py-5 sm:py-8 space-y-4 text-center px-1 sm:px-0"
+            transition={{ duration: 0.16 }}
+            className="max-w-xl mx-auto py-8 sm:py-12 space-y-5 text-center"
           >
-            <div className="space-y-1">
-              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
-                Import from any Website
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold tracking-tight text-foreground">
+                Import from any website
               </h3>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto">
-                Paste any recipe link from NYT Cooking, Serious Eats, food blogs, or websites to extract ingredients and steps.
+              <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+                Paste a link from NYT Cooking, Serious Eats, Cook Well, or any food blog to automatically extract ingredients and steps.
               </p>
             </div>
 
@@ -408,17 +359,17 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 id="scraper-url-input"
                 type="url"
                 required
-                placeholder="Paste recipe URL (e.g. https://...)"
+                placeholder="https://..."
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isScraping}
-                className="w-full sm:flex-1 h-12 px-3.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
+                className="w-full sm:flex-1 h-11 px-4 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm placeholder:text-muted-foreground"
               />
               <button
                 id="draw-recipe-btn"
                 type="submit"
                 disabled={isScraping || !url.trim()}
-                className="w-full sm:w-auto h-12 px-6 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold text-sm rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 cursor-pointer shadow-xs active:scale-98"
+                className="w-full sm:w-auto h-11 px-6 bg-foreground text-background font-medium text-sm rounded-full hover:opacity-85 transition-opacity flex items-center justify-center gap-2 disabled:opacity-40 shrink-0 cursor-pointer"
               >
                 {isScraping ? (
                   <>
@@ -427,7 +378,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   </>
                 ) : (
                   <>
-                    <span>Import Recipe</span>
+                    <span>Import</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -435,206 +386,174 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             </form>
 
             {scrapeError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs rounded-xl border border-red-200 dark:border-red-800 text-left">
+              <div className="p-3.5 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs rounded-2xl border border-red-200 dark:border-red-900/50 text-left">
                 {scrapeError}
               </div>
             )}
           </motion.div>
         ) : (
-          /* Mobile-Optimized Manual Form View */
-          <motion.form 
+          <motion.form
             key="tab-manual-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            onSubmit={handleSubmit} 
-            className="space-y-5 sm:space-y-6 max-w-3xl mx-auto"
+            transition={{ duration: 0.16 }}
+            onSubmit={handleSubmit}
+            className="space-y-8 max-w-3xl"
           >
-            {/* Title & Description */}
-            <div className="space-y-3">
+            {/* Title, Description & Cover Image URL */}
+            <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1 block">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                   Recipe Title <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="recipe-title-input"
                   type="text"
                   required
-                  placeholder="e.g. Grandma's Lasagna"
+                  placeholder="e.g. Black Pepper Chicken Club Sandwich"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
+                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 mb-1 block">
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                   Short Description
                 </label>
                 <input
                   id="recipe-desc-textarea"
                   type="text"
-                  placeholder="Brief note about the dish..."
+                  placeholder="What makes this dish great..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
+                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Cook Time (mins)
+                  </label>
+                  <input
+                    id="recipe-time-input"
+                    type="number"
+                    min={1}
+                    required
+                    value={cookingTime}
+                    onChange={(e) => setCookingTime(parseInt(e.target.value) || 0)}
+                    className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Servings
+                  </label>
+                  <input
+                    id="recipe-servings-input"
+                    type="number"
+                    min={1}
+                    required
+                    value={servings}
+                    onChange={(e) => setServings(parseInt(e.target.value) || 1)}
+                    className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                    Photo URL (Optional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Quick Details: Time and Servings */}
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 bg-neutral-50/80 dark:bg-neutral-700/40 p-3 sm:p-3.5 rounded-xl border border-neutral-100 dark:border-neutral-800">
+            {/* Category & Cuisine Pills */}
+            <div className="space-y-4 pt-2 border-t border-border">
               <div>
-                <label className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mb-1">
-                  Cook Time (mins)
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Meal Type
                 </label>
-                <input
-                  id="recipe-time-input"
-                  type="number"
-                  min={1}
-                  required
-                  value={cookingTime}
-                  onChange={(e) => setCookingTime(parseInt(e.target.value) || 0)}
-                  className="w-full h-10 sm:h-9 px-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm sm:text-xs focus:outline-none"
-                />
+                <div className="flex flex-wrap gap-1.5">
+                  {MEAL_TYPES.filter((t) => t !== "All").map((t) => {
+                    const selected = mealType === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setMealType(t as any)}
+                        className={`h-8 px-3.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${getMealTypeButtonColor(
+                          t,
+                          selected
+                        )}`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mb-1">
-                  Servings
+                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                  Cuisine
                 </label>
-                <input
-                  id="recipe-servings-input"
-                  type="number"
-                  min={1}
-                  required
-                  value={servings}
-                  onChange={(e) => setServings(parseInt(e.target.value) || 1)}
-                  className="w-full h-10 sm:h-9 px-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm sm:text-xs focus:outline-none"
-                />
+                <div className="flex flex-wrap gap-1.5">
+                  {CUISINES.filter((c) => c !== "All").map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCuisine(c)}
+                      className={`h-8 px-3.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                        cuisine === c
+                          ? "bg-foreground text-background"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Meal Type Buttons */}
-            <div>
-              <label className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                Meal Type
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {MEAL_TYPES.filter(t => t !== "All").map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setMealType(t as any)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      mealType === t
-                        ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 shadow-xs"
-                        : "bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Cuisine Buttons */}
-            <div>
-              <label className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 block mb-1.5">
-                Cuisine
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {CUISINES.filter(c => c !== "All").map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCuisine(c)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                      cuisine === c
-                        ? "bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 shadow-xs"
-                        : "bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Ingredients - Touch & Screen Size Responsive */}
-            <div className="space-y-2.5 pt-1">
+            {/* Ingredients */}
+            <div className="space-y-3 pt-4 border-t border-border">
               <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-50">
+                <span className="text-sm font-semibold text-foreground">
                   Ingredients ({ingredients.length})
                 </span>
                 <button
                   id="add-ingredient-btn"
                   type="button"
                   onClick={handleAddIngredient}
-                  className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer p-1"
+                  className="text-xs font-medium text-foreground hover:opacity-75 flex items-center gap-1 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 text-neutral-500" />
+                  <Plus className="w-3.5 h-3.5" />
                   <span>Add Item</span>
                 </button>
               </div>
 
               <div className="space-y-2">
                 {ingredients.map((ingredient, index) => (
-                  <div key={index}>
-                    {/* Mobile View (< sm): 2-tier card layout so ingredient name has ample space */}
-                    <div className="sm:hidden p-2.5 bg-neutral-50 dark:bg-neutral-700/50 rounded-xl border border-neutral-200/70 dark:border-neutral-700/60 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Ingredient name (e.g. Flour)"
-                          required
-                          value={ingredient.name}
-                          onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
-                          className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveIngredient(index)}
-                          disabled={ingredients.length <= 1}
-                          className="w-9 h-9 flex items-center justify-center text-neutral-400 hover:text-red-500 disabled:opacity-20 active:scale-95 shrink-0"
-                          aria-label="Remove ingredient"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="relative">
-                          <input
-                            type="number"
-                            placeholder="Qty"
-                            step="any"
-                            min="0"
-                            value={ingredient.amount === 0 ? "" : ingredient.amount}
-                            onChange={(e) => handleIngredientChange(index, "amount", parseFloat(e.target.value) || 0)}
-                            className="w-full px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
-                          />
-                        </div>
-                        <input
-                          type="text"
-                          placeholder="Unit (tbsp, cups)"
-                          value={ingredient.unit}
-                          onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Tablet/Desktop View (>= sm): Compact inline row */}
-                    <div className="hidden sm:flex gap-2 items-center">
-                      <input
-                        type="text"
-                        placeholder="Ingredient name (e.g. Flour)"
-                        required
-                        value={ingredient.name}
-                        onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
-                        className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs focus:outline-none"
-                      />
+                  <div key={index} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                    <input
+                      type="text"
+                      placeholder="Ingredient name (e.g. Chicken thighs)"
+                      required
+                      value={ingredient.name}
+                      onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
+                      className="flex-1 h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    />
+                    <div className="flex gap-2 items-center">
                       <input
                         type="number"
                         placeholder="Qty"
@@ -642,20 +561,20 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                         min="0"
                         value={ingredient.amount === 0 ? "" : ingredient.amount}
                         onChange={(e) => handleIngredientChange(index, "amount", parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs text-center focus:outline-none"
+                        className="w-20 h-10 px-2.5 bg-card text-foreground border border-border rounded-xl text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
                       />
                       <input
                         type="text"
                         placeholder="Unit"
                         value={ingredient.unit}
                         onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
-                        className="w-24 px-2 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs focus:outline-none"
+                        className="flex-1 sm:w-28 h-10 px-3 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveIngredient(index)}
                         disabled={ingredients.length <= 1}
-                        className="p-2 text-neutral-400 hover:text-red-500 disabled:opacity-20 cursor-pointer"
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-secondary disabled:opacity-20 cursor-pointer shrink-0"
                         aria-label="Remove ingredient"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -665,53 +584,52 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 ))}
               </div>
 
-              {/* Add Ingredient Full-Width Button on Mobile */}
               <button
                 type="button"
                 onClick={handleAddIngredient}
-                className="w-full py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+                className="w-full h-10 rounded-xl border border-dashed border-border hover:border-foreground/30 hover:bg-secondary/50 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Ingredient</span>
               </button>
             </div>
 
-            {/* Instructions - Touch & Screen Size Responsive */}
-            <div className="space-y-2.5 pt-2">
+            {/* Method Steps */}
+            <div className="space-y-3 pt-4 border-t border-border">
               <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-50">
-                  Instructions ({instructions.length} steps)
+                <span className="text-sm font-semibold text-foreground">
+                  Method ({instructions.length} steps)
                 </span>
                 <button
                   id="add-instruction-btn"
                   type="button"
                   onClick={handleAddInstruction}
-                  className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white flex items-center gap-1 cursor-pointer p-1"
+                  className="text-xs font-medium text-foreground hover:opacity-75 flex items-center gap-1 cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 text-neutral-500" />
+                  <Plus className="w-3.5 h-3.5" />
                   <span>Add Step</span>
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {instructions.map((step, index) => (
-                  <div key={index} className="flex gap-2 items-start bg-neutral-50/60 dark:bg-neutral-700/30 p-2 sm:p-0 rounded-xl border sm:border-none border-neutral-100 dark:border-neutral-800">
-                    <span className="w-6 h-6 mt-1 flex items-center justify-center bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-bold rounded-full shrink-0">
+                  <div key={index} className="flex gap-2.5 items-start">
+                    <span className="w-7 h-7 mt-1.5 flex items-center justify-center bg-foreground text-background text-xs font-semibold rounded-full shrink-0 tabular-nums">
                       {index + 1}
                     </span>
                     <textarea
                       rows={2}
-                      placeholder={`Step ${index + 1} description...`}
+                      placeholder={`Step ${index + 1}...`}
                       required
                       value={step}
                       onChange={(e) => handleInstructionChange(index, e.target.value)}
-                      className="flex-1 px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
+                      className="flex-1 px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-y"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveInstruction(index)}
                       disabled={instructions.length <= 1}
-                      className="w-8 h-8 flex items-center justify-center text-neutral-400 hover:text-red-500 disabled:opacity-20 mt-1 cursor-pointer shrink-0 active:scale-95"
+                      className="w-9 h-9 mt-1 rounded-full flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-secondary disabled:opacity-20 cursor-pointer shrink-0"
                       aria-label="Remove step"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -720,63 +638,68 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                 ))}
               </div>
 
-              {/* Add Step Full-Width Button on Mobile */}
               <button
                 type="button"
                 onClick={handleAddInstruction}
-                className="w-full py-2.5 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-98"
+                className="w-full h-10 rounded-xl border border-dashed border-border hover:border-foreground/30 hover:bg-secondary/50 text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Step</span>
               </button>
             </div>
 
-            {/* Notes (Optional) */}
-            <div className="pt-1">
-              <label className="text-xs font-bold text-neutral-900 dark:text-neutral-50 mb-1 block">
-                Notes & Chef Tips <span className="text-neutral-400 font-normal">(Optional)</span>
+            {/* Notes */}
+            <div className="pt-4 border-t border-border">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Notes &amp; Technique Tips (Optional)
               </label>
               <textarea
                 id="recipe-notes-textarea"
-                placeholder="Secret tips, substitutions, or pairing ideas..."
+                placeholder="Substitutions, timing tips, or the why behind the technique..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className="w-full px-3 py-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm focus:outline-none resize-none"
+                rows={3}
+                className="w-full px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-y"
               />
             </div>
 
             {formError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
+              <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
                 {formError}
               </div>
             )}
 
-            {/* Save Buttons - Stacked on Mobile with Thumb-Friendly Tap Targets */}
-            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-4 border-t border-neutral-150 dark:border-neutral-800">
+            {/* Footer Save Bar */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-11 px-5 rounded-full border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 id="submit-form-btn"
                 type="submit"
                 disabled={isSaving}
-                className="w-full sm:w-auto px-6 py-3.5 sm:py-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-semibold rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm active:scale-98"
+                className="h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-85 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isSaving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Saving to Cookbook...</span>
+                    <span>Saving...</span>
                   </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4" />
-                    <span>Save to Cookbook</span>
+                    <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
+                    <span>{editingRecipe ? "Save Changes" : "Save Recipe"}</span>
                   </>
                 )}
               </button>
             </div>
           </motion.form>
         )}
-        </AnimatePresence>
-      </div>
+      </AnimatePresence>
     </div>
   );
 }

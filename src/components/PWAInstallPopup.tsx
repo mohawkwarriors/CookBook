@@ -88,15 +88,14 @@ export const PWAInstallPopup: React.FC = () => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-800 p-6 shadow-2xl z-10 overflow-hidden"
+          className="relative w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 overflow-hidden"
           role="dialog"
           aria-modal="true"
           aria-labelledby="install-modal-title"
         >
-          {/* Close button in top-right */}
           <button
             onClick={handleDeclineClick}
-            className="absolute right-3.5 top-3.5 rounded-full p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+            className="absolute right-3.5 top-3.5 rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary transition cursor-pointer"
             aria-label="Close"
           >
             <X className="w-4 h-4" />
@@ -104,82 +103,76 @@ export const PWAInstallPopup: React.FC = () => {
 
           {!showIOSSteps ? (
             <div className="flex flex-col items-center text-center">
-              {/* App Icon badge matching brand palette */}
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-0.5 shadow-md shadow-emerald-500/20 mb-4 flex items-center justify-center">
-                <div className="w-full h-full rounded-[14px] bg-[#FDFBF7] dark:bg-neutral-800 flex items-center justify-center border border-emerald-400/30">
-                  <UtensilsCrossed className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                </div>
+              <div className="w-14 h-14 rounded-2xl bg-foreground text-background mb-4 flex items-center justify-center relative">
+                <UtensilsCrossed className="w-6 h-6" />
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary border-2 border-card" />
               </div>
 
-              <h3 id="install-modal-title" className="text-xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">
+              <h3 id="install-modal-title" className="text-lg font-semibold text-foreground tracking-tight">
                 Install Cookbook
               </h3>
-              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                Add Cookbook to your device for instant home screen access, offline recipe viewing, and a distraction-free full-screen experience.
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                Add Cookbook to your home screen for instant offline access and a full-screen cooking experience.
               </p>
 
-              {/* Action Buttons: Green Install button & Decline button */}
-              <div className="mt-6 flex flex-col w-full gap-2.5">
+              <div className="mt-6 flex flex-col w-full gap-2">
                 <motion.button
-                  whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleInstallClick}
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-11 px-4 rounded-full bg-foreground hover:opacity-85 text-background font-medium text-sm transition-opacity flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Smartphone className="w-4 h-4" />
+                  <Smartphone className="w-4 h-4 text-primary" />
                   <span>Install App</span>
                 </motion.button>
 
                 <button
                   type="button"
                   onClick={handleDeclineClick}
-                  className="w-full py-2.5 px-4 rounded-xl text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm font-medium transition-colors cursor-pointer"
+                  className="w-full h-10 px-4 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary text-sm font-medium transition-colors cursor-pointer"
                 >
-                  Decline
+                  Not now
                 </button>
               </div>
             </div>
           ) : (
-            /* iOS Instructions step */
             <div className="flex flex-col items-center text-center">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center mb-3">
-                <Smartphone className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+              <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mb-3">
+                <Smartphone className="w-6 h-6 text-foreground" />
               </div>
 
-              <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-50">
+              <h3 className="text-base font-semibold text-foreground">
                 Install on iPhone or iPad
               </h3>
-              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                Follow these two simple steps in Safari:
+              <p className="mt-1 text-xs text-muted-foreground">
+                Two quick steps in Safari:
               </p>
 
-              <div className="mt-4 space-y-3 border-t border-neutral-100 dark:border-neutral-800 pt-4 text-left text-sm text-neutral-600 dark:text-neutral-300 w-full">
+              <div className="mt-4 space-y-3 border-t border-border pt-4 text-left text-sm text-muted-foreground w-full">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
                     1
                   </div>
                   <div className="flex-1 leading-relaxed text-xs sm:text-sm">
-                    Tap the <strong className="text-neutral-900 dark:text-neutral-50 inline-flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-medium"><Share className="w-3 h-3 inline" /> Share</strong> button in Safari's bottom bar.
+                    Tap the <strong className="text-foreground inline-flex items-center gap-1 bg-secondary px-1.5 py-0.5 rounded font-medium"><Share className="w-3 h-3 inline" /> Share</strong> button in Safari&apos;s bottom bar.
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
                     2
                   </div>
                   <div className="flex-1 leading-relaxed text-xs sm:text-sm">
-                    Scroll down and tap <strong className="text-neutral-900 dark:text-neutral-50 inline-flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded font-medium"><PlusSquare className="w-3 h-3 inline" /> Add to Home Screen</strong>.
+                    Scroll down and tap <strong className="text-foreground inline-flex items-center gap-1 bg-secondary px-1.5 py-0.5 rounded font-medium"><PlusSquare className="w-3 h-3 inline" /> Add to Home Screen</strong>.
                   </div>
                 </div>
               </div>
 
               <motion.button
-                whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={markResolvedAndClose}
-                className="mt-5 w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="mt-5 w-full h-11 px-4 rounded-full bg-foreground hover:opacity-85 text-background font-medium text-sm transition-opacity flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Check className="w-4 h-4" />
+                <Check className="w-4 h-4 text-primary" />
                 <span>Got It</span>
               </motion.button>
             </div>

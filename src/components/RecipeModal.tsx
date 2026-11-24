@@ -1,33 +1,38 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Clock, ChefHat, Users, Calendar, Edit2, Trash2, Minus, Plus, ListChecks, Check, ChevronDown, Activity, UtensilsCrossed } from "lucide-react";
+import {
+  X,
+  Clock,
+  Calendar,
+  Edit2,
+  Trash2,
+  Minus,
+  Plus,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Play,
+  ExternalLink,
+  Utensils,
+  Bookmark,
+} from "lucide-react";
 import { Recipe, MealPlanEntry } from "../types";
 import InstructionStep from "./InstructionStep";
 import RecipeIcon from "./RecipeIcon";
 import CookingMode from "./CookingMode";
-import { formatTime } from "../lib/utils";
+import { formatTime, getMealTypeColor } from "../lib/utils";
 
 interface RecipeModalProps {
   recipe: Recipe | null;
   isOpen: boolean;
   isAdmin?: boolean;
+  isBookmarked?: boolean;
+  onBookmark?: (recipe: Recipe) => void;
   onClose: () => void;
   onEdit: (recipe: Recipe) => void;
   onDelete: (id: string) => Promise<void>;
   onAddToCalendar: (entry: Omit<MealPlanEntry, "id">) => Promise<void>;
 }
-
-const getMealTypeColor = (type: string | undefined) => {
-  switch (type) {
-    case "Starter": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-500";
-    case "Main": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-500";
-    case "Side": return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-500";
-    case "Drink": return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-500";
-    case "Dessert": return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-500";
-    case "Snack": return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-500";
-    default: return "border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400";
-  }
-};
 
 const formatIngredientName = (name: string) => {
   if (!name) return "";
@@ -44,10 +49,21 @@ const formatIngredientName = (name: string) => {
     .join(" ");
 };
 
-export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, onDelete, onAddToCalendar }: RecipeModalProps) {
+export default function RecipeModal({
+  recipe,
+  isOpen,
+  isAdmin,
+  isBookmarked = false,
+  onBookmark,
+  onClose,
+  onEdit,
+  onDelete,
+  onAddToCalendar,
+}: RecipeModalProps) {
   const [servings, setServings] = useState<number>(4);
   const [plannerDate, setPlannerDate] = useState("");
   const [plannerMeal, setPlannerMeal] = useState<"Breakfast" | "Lunch" | "Dinner" | "Snack">("Dinner");
+  const [showPlannerBar, setShowPlannerBar] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -60,14 +76,13 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   const bodyRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
 
-  // Initialize servings and dates
   useEffect(() => {
     if (recipe) {
       setServings(recipe.servings || 4);
-      // Set default planner date to today
       const todayStr = new Date().toISOString().split("T")[0];
       setPlannerDate(todayStr);
       setPlannedSuccess(false);
+      setShowPlannerBar(false);
       setShowDeleteConfirm(false);
       setCompletedSteps(new Set());
       setCompletedIngredients(new Set());
@@ -80,54 +95,41 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
     }
   }, [recipe, isOpen]);
 
-  // Handle scroll to auto-collapse ingredients on mobile when scrolling down
+  // Close on Escape when Cooking Mode is not open
+  useEffect(() => {
+    if (!isOpen || isCookingModeOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, isCookingModeOpen, onClose]);
+
   useEffect(() => {
     const handleScroll = () => {
       const container = bodyRef.current;
-      if (!container) return;
-
-      // Only run on mobile viewports (< 768px)
-      if (window.innerWidth >= 768) return;
-
+      if (!container || window.innerWidth >= 768) return;
       const currentScrollY = container.scrollTop;
-
-      // If they scrolled down past a threshold (e.g. 15px) and we haven't auto-collapsed yet
-      if (currentScrollY > lastScrollY.current && currentScrollY > 15 && !hasAutoCollapsed && !isIngredientsCollapsed) {
+      if (currentScrollY > lastScrollY.current && currentScrollY > 40 && !hasAutoCollapsed && !isIngredientsCollapsed) {
         setIsIngredientsCollapsed(true);
         setHasAutoCollapsed(true);
       }
-      
       lastScrollY.current = currentScrollY;
     };
 
     const container = bodyRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-    }
+    if (container) container.addEventListener("scroll", handleScroll);
     return () => {
-      if (container) {
-        container.removeEventListener("scroll", handleScroll);
-      }
+      if (container) container.removeEventListener("scroll", handleScroll);
     };
   }, [hasAutoCollapsed, isIngredientsCollapsed]);
 
-  // Scale multiplier
   const scaleRatio = servings / (recipe?.servings || 1);
 
-  // Helper to format scaled ingredient amounts beautifully
   const formatAmount = (amount: number) => {
     if (!amount) return "";
     const scaled = amount * scaleRatio;
-    // Format to 2 decimal places max, removing trailing zeroes
     return parseFloat(scaled.toFixed(2)).toString();
-  };
-
-  const handleDecreaseServings = () => {
-    if (servings > 1) setServings((prev) => prev - 1);
-  };
-
-  const handleIncreaseServings = () => {
-    setServings((prev) => prev + 1);
   };
 
   const handlePlanMeal = async () => {
@@ -142,7 +144,10 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
         servings: servings,
       });
       setPlannedSuccess(true);
-      setTimeout(() => setPlannedSuccess(false), 3000);
+      setTimeout(() => {
+        setPlannedSuccess(false);
+        setShowPlannerBar(false);
+      }, 1800);
     } catch (err) {
       console.error("Error adding to meal plan:", err);
     } finally {
@@ -152,12 +157,10 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
 
   const handleDeleteClick = async () => {
     if (!recipe || !recipe.id) return;
-    
     if (!showDeleteConfirm) {
       setShowDeleteConfirm(true);
       return;
     }
-    
     setIsDeleting(true);
     try {
       await onDelete(recipe.id);
@@ -173,487 +176,579 @@ export default function RecipeModal({ recipe, isOpen, isAdmin, onClose, onEdit, 
   return (
     <AnimatePresence>
       {isOpen && recipe && (
-        <motion.div 
+        <motion.div
           key="recipe-modal-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.22 }}
-          id="recipe-modal-overlay" 
-          className="fixed inset-0 z-50 flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 overflow-hidden print:bg-white"
+          transition={{ duration: 0.2 }}
+          id="recipe-modal-overlay"
+          className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden print:bg-white"
         >
-          <motion.div 
-            id="recipe-modal-card" 
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full h-full max-w-5xl mx-auto flex flex-col bg-[#FDFBF7] dark:bg-neutral-800 print:max-w-none print:w-full"
-          >
-        
-        {/* Header Block */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 dark:border-neutral-700 print:hidden">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex items-center gap-1.5 select-none cursor-pointer text-left focus:outline-none group bg-transparent border-0 p-0"
-              title="Back to recipes"
-              aria-label="Cookbook - Back to recipes"
-            >
-              <UtensilsCrossed className="w-5 h-5 text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors" />
-              <span className="text-lg font-bold tracking-tight text-neutral-900 dark:text-neutral-50 group-hover:text-accent-500 dark:group-hover:text-accent-400 transition-colors">Cookbook</span>
-            </button>
-            <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
-            {recipe.mealType && (
-              <span className={`text-xs uppercase tracking-wider font-bold px-2 py-0.5 rounded-full shrink-0 ${getMealTypeColor(recipe.mealType)}`}>
-                {recipe.mealType}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden md:block w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
-            {isAdmin && (
-              <>
-                <button
-                  onClick={() => onEdit(recipe)}
-                  className="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors flex items-center gap-1.5 text-xs font-medium"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  Edit
-                </button>
-                <button
-                  onClick={handleDeleteClick}
-                  disabled={isDeleting}
-                  className={`p-2 transition-colors flex items-center gap-1.5 text-xs font-medium rounded-md ${showDeleteConfirm ? 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40' : 'text-neutral-500 dark:text-neutral-400 hover:text-red-600 dark:hover:text-red-400'}`}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {isDeleting ? "Deleting..." : showDeleteConfirm ? "Click to Confirm" : "Delete"}
-                </button>
-                <div className="w-px h-4 bg-neutral-200 dark:bg-neutral-700 mx-1"></div>
-              </>
-            )}
-            <button 
-              onClick={onClose}
-              className="p-1.5 text-neutral-400 dark:text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+          {/* Cook Well Sticky Top Breadcrumb Bar */}
+          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-background/90 px-4 md:px-6 backdrop-blur-md print:hidden">
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors cursor-pointer font-medium"
+              >
+                Recipes
+              </button>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+              <span className="truncate font-medium text-foreground">{recipe.title}</span>
+            </nav>
 
-        {/* Recipe Body */}
-        <div ref={bodyRef} className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 print:overflow-visible">
-          {/* Cover & General Metadata */}
-          <div className="flex flex-col md:flex-row gap-8">
-            {recipe.imageUrl ? (
-              <div className="w-full md:w-1/3 aspect-[4/3] rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-800 relative shrink-0">
-                <img
-                  src={recipe.imageUrl}
-                  alt={recipe.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-full md:w-1/3 aspect-[4/3] rounded-xl overflow-hidden relative shrink-0">
-                <RecipeIcon recipe={recipe} className="w-full h-full" />
-              </div>
-            )}
-            <div className="flex-1 space-y-5">
-              <h1 className="text-3xl md:text-4xl font-semibold text-neutral-900 dark:text-neutral-50 tracking-tight leading-tight">
-                {recipe.title}
-              </h1>
-              {recipe.description && (
-                <p className="text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed max-w-2xl">
-                  {recipe.description}
-                </p>
+            <div className="flex shrink-0 items-center gap-2">
+              {onBookmark && (
+                <button
+                  type="button"
+                  onClick={() => onBookmark(recipe)}
+                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
+                    isBookmarked
+                      ? "border-foreground bg-secondary text-foreground"
+                      : "border-border bg-background text-foreground hover:bg-secondary"
+                  }`}
+                  title={isBookmarked ? "Saved in collection" : "Save to collection"}
+                >
+                  <Bookmark
+                    className={`w-3.5 h-3.5 ${isBookmarked ? "fill-primary text-primary-dark" : ""}`}
+                  />
+                  <span className="hidden sm:inline">{isBookmarked ? "Saved" : "Save"}</span>
+                </button>
               )}
 
-              {/* Fast Tags */}
-              <div className="flex flex-wrap gap-3 pt-2 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-                <span className="flex items-center gap-1.5 border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 rounded-md">
-                  <Clock className="w-3.5 h-3.5" />
-                  {formatTime(recipe.cookingTime)}
-                </span>
-                <span className="flex items-center gap-1.5 border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 rounded-md">
-                  <ChefHat className="w-3.5 h-3.5" />
-                  {recipe.cuisine}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Servings Scaler */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-4 border-y border-neutral-100 dark:border-neutral-700 print:hidden">
-            <div>
-              <h4 className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                Servings
-              </h4>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Adjust serving size to scale ingredients automatically.
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <motion.button
-                whileTap={{ scale: 0.88 }}
-                onClick={handleDecreaseServings}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-900 dark:hover:border-white hover:text-neutral-900 dark:hover:text-white transition-all disabled:opacity-35 cursor-pointer"
-                disabled={servings <= 1}
+              <button
+                type="button"
+                onClick={() => setIsCookingModeOpen(true)}
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
               >
-                <Minus className="w-3 h-3" />
-              </motion.button>
-              <span className="w-6 text-center font-medium text-neutral-900 dark:text-neutral-50 tabular-nums">
-                {servings}
-              </span>
-              <motion.button
-                whileTap={{ scale: 0.88 }}
-                onClick={handleIncreaseServings}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 text-neutral-600 dark:text-neutral-400 hover:border-neutral-900 dark:hover:border-white hover:text-neutral-900 dark:hover:text-white transition-all cursor-pointer"
+                <Play className="w-3.5 h-3.5 fill-current text-primary" />
+                <span>Let&apos;s Cook</span>
+              </button>
+
+              {isAdmin && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowPlannerBar((v) => !v)}
+                    className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
+                      showPlannerBar
+                        ? "border-foreground bg-secondary text-foreground"
+                        : "border-border bg-background text-foreground hover:bg-secondary"
+                    }`}
+                    title="Add to Meal Plan"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Plan</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onEdit(recipe)}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                    title="Edit recipe"
+                    aria-label="Edit recipe"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDeleteClick}
+                    disabled={isDeleting}
+                    className={`inline-flex items-center justify-center h-9 rounded-full border transition-colors cursor-pointer ${
+                      showDeleteConfirm
+                        ? "px-3 border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-xs font-medium gap-1.5"
+                        : "w-9 border-border text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-secondary"
+                    }`}
+                    title="Delete recipe"
+                    aria-label="Delete recipe"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {showDeleteConfirm && <span>{isDeleting ? "Deleting..." : "Confirm"}</span>}
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                aria-label="Close recipe"
               >
-                <Plus className="w-3 h-3" />
-              </motion.button>
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          </div>
+          </header>
 
-          {/* Core Content Grid: Ingredients & Instructions */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-10 md:gap-16">
-            {/* Ingredients */}
-            <div className="md:col-span-2 space-y-4 md:space-y-6">
-              <div 
-                onClick={() => {
-                  if (window.innerWidth < 768) {
-                    setIsIngredientsCollapsed(!isIngredientsCollapsed);
-                  }
-                }}
-                className="flex items-center justify-between cursor-pointer md:cursor-default"
+          {/* Collapsible Inline Meal Plan Bar */}
+          <AnimatePresence>
+            {showPlannerBar && isAdmin && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden border-b border-border bg-secondary/50 print:hidden"
               >
-                <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest flex items-center gap-2 select-none">
-                  <span>Ingredients</span>
-                  {isIngredientsCollapsed && (
-                    <span className="text-[11px] font-mono tracking-normal font-normal text-neutral-500 dark:text-neutral-400 normal-case">
-                      ({recipe.ingredients.length} items · {completedIngredients.size} checked)
-                    </span>
-                  )}
-                </h3>
-                <button
-                  type="button"
-                  className="md:hidden flex items-center justify-center w-8 h-8 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors"
-                  aria-label={isIngredientsCollapsed ? "Expand ingredients" : "Collapse ingredients"}
-                >
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isIngredientsCollapsed ? "" : "transform rotate-180"}`} />
-                </button>
-              </div>
+                <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <Calendar className="w-3.5 h-3.5 text-foreground" />
+                    <span>Schedule to Meal Planner ({servings} servings)</span>
+                  </div>
 
-              <div className={`transition-all duration-300 ease-in-out origin-top overflow-hidden ${
-                isIngredientsCollapsed 
-                  ? "max-h-0 opacity-0 pointer-events-none md:max-h-none md:opacity-100 md:pointer-events-auto" 
-                  : "max-h-[1200px] opacity-100"
-              }`}>
-                <div className="space-y-2 md:space-y-3 pb-1">
-                  {recipe.ingredients.map((ing, idx) => {
-                    const isCompleted = completedIngredients.has(idx);
-                    return (
-                      <motion.div 
-                        key={idx}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          const newSet = new Set(completedIngredients);
-                          if (newSet.has(idx)) newSet.delete(idx);
-                          else newSet.add(idx);
-                          setCompletedIngredients(newSet);
-                        }}
-                        className={`flex items-center justify-between gap-3 p-2 md:p-3 rounded-lg md:rounded-xl border md:border-2 transition-all cursor-pointer select-none ${
-                          isCompleted 
-                            ? "border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-neutral-400 dark:text-neutral-600" 
-                            : "border-neutral-100 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-neutral-200 dark:hover:border-neutral-700 md:hover:border-neutral-300 dark:md:hover:border-neutral-600 hover:shadow-sm text-neutral-800 dark:text-neutral-200"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 md:gap-3">
-                          <motion.div 
-                            animate={{ scale: isCompleted ? [0.8, 1.25, 1] : 1 }}
-                            transition={{ duration: 0.2 }}
-                            className={`w-4 h-4 md:w-5 md:h-5 shrink-0 rounded-full flex items-center justify-center border md:border-2 transition-colors ${
-                              isCompleted ? "bg-accent-100 dark:bg-accent-900/30 border-accent-200 dark:border-accent-800 text-accent-700 dark:text-accent-500" : "border-neutral-200 dark:border-neutral-600 text-transparent"
-                            }`}
-                          >
-                            <Check className="w-2.5 h-2.5 md:w-3 md:h-3" strokeWidth={3} />
-                          </motion.div>
-                          <span className={`text-sm md:text-sm leading-tight transition-all ${isCompleted ? "line-through opacity-70" : ""}`}>
-                            {formatIngredientName(ing.name)}
-                          </span>
-                        </div>
-                        <span className={`font-mono text-xs md:text-xs text-right shrink-0 transition-all ${isCompleted ? "text-neutral-400 dark:text-neutral-600 opacity-70" : "text-neutral-500 dark:text-neutral-400"}`}>
-                          {formatAmount(ing.amount)} {ing.unit}
-                        </span>
-                      </motion.div>
-                    );
-                  })}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      value={plannerDate}
+                      onChange={(e) => setPlannerDate(e.target.value)}
+                      className="h-9 px-3 text-xs font-medium border border-border bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    />
+                    <select
+                      value={plannerMeal}
+                      onChange={(e) => setPlannerMeal(e.target.value as any)}
+                      className="h-9 px-3 text-xs font-medium border border-border bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    >
+                      <option value="Breakfast">Breakfast</option>
+                      <option value="Lunch">Lunch</option>
+                      <option value="Dinner">Dinner</option>
+                      <option value="Snack">Snack</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handlePlanMeal}
+                      disabled={isPlanning || !plannerDate}
+                      className="h-9 px-4 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-85 transition-opacity disabled:opacity-50 cursor-pointer"
+                    >
+                      {plannedSuccess ? "Added!" : isPlanning ? "Adding..." : "Add to Plan"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-            {/* Instructions */}
-            <div className="md:col-span-3 space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest">
-                  Instructions
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsCookingModeOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-accent-50 dark:bg-accent-950/40 text-accent-700 dark:text-accent-400 border border-accent-200 dark:border-accent-800 rounded-lg text-xs font-semibold hover:bg-accent-100 dark:hover:bg-accent-900/40 transition-colors active:scale-95 cursor-pointer"
-                  title="Open Step-by-Step Cooking Mode"
-                >
-                  <ChefHat className="w-3.5 h-3.5" />
-                  <span>Cooking Mode</span>
-                </button>
-              </div>
-              
-              <div className="relative pb-4">
-                {(() => {
-                  type InstructionBlock = { type: 'single', step: string, idx: number } | { type: 'parallel', steps: { step: string, idx: number }[] };
-                  const blocks: InstructionBlock[] = [];
-                  let currentParallelBlock: { step: string, idx: number }[] | null = null;
-                  
-                  recipe.instructions.forEach((step, idx) => {
-                    const lowerStep = step.toLowerCase().trim();
-                    const isParallel = idx > 0 && (
-                      lowerStep.startsWith("meanwhile") || 
-                      lowerStep.startsWith("while") || 
-                      lowerStep.startsWith("in parallel") || 
-                      lowerStep.startsWith("separately") ||
-                      lowerStep.startsWith("at the same time") ||
-                      lowerStep.startsWith("for the ") ||
-                      lowerStep.startsWith("to make the ") ||
-                      lowerStep.startsWith("prepare the ")
-                    );
+          {/* Scrollable Editorial Body */}
+          <div ref={bodyRef} className="flex-1 overflow-y-auto print:overflow-visible">
+            <motion.div
+              id="recipe-modal-card"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12 space-y-10 md:space-y-14"
+            >
+              {/* Hero Split */}
+              <section className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 items-start">
+                <div className="md:col-span-5">
+                  <div className="aspect-[4/3] md:aspect-[4/5] w-full rounded-2xl overflow-hidden bg-muted border border-border/60">
+                    {recipe.imageUrl ? (
+                      <img
+                        src={recipe.imageUrl}
+                        alt={recipe.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <RecipeIcon recipe={recipe} variant="cover" className="w-full h-full" />
+                    )}
+                  </div>
+                </div>
 
-                    if (isParallel) {
-                      if (!currentParallelBlock) {
-                        const lastBlock = blocks.pop();
-                        if (lastBlock?.type === 'single') {
-                          currentParallelBlock = [lastBlock, { step, idx }];
-                          blocks.push({ type: 'parallel', steps: currentParallelBlock });
-                        } else if (lastBlock?.type === 'parallel') {
-                          lastBlock.steps.push({ step, idx });
-                          blocks.push(lastBlock);
-                          currentParallelBlock = lastBlock.steps;
-                        } else {
-                           blocks.push({ type: 'single', step, idx });
+                <div className="md:col-span-7 flex flex-col justify-center space-y-6 md:pt-2">
+                  {/* Category & Cuisine Tags */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
+                    {recipe.mealType && (
+                      <span
+                        className={`text-[11px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shrink-0 ${getMealTypeColor(
+                          recipe.mealType
+                        )}`}
+                      >
+                        {recipe.mealType}
+                      </span>
+                    )}
+                    {recipe.cuisine && (
+                      <span className="rounded-full border border-border px-3 py-1">
+                        {recipe.cuisine}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <h1 className="text-3xl sm:text-4xl md:text-[42px] font-semibold text-foreground tracking-[-0.025em] leading-[1.12]">
+                      {recipe.title}
+                    </h1>
+                    {recipe.description && (
+                      <p className="text-[15px] sm:text-base text-muted-foreground leading-relaxed max-w-xl">
+                        {recipe.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Editorial Key Specs Strip */}
+                  <div className="grid grid-cols-3 gap-4 py-5 border-y border-border max-w-md">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Total Time
+                      </p>
+                      <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        {formatTime(recipe.cookingTime)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Yield
+                      </p>
+                      <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums">
+                        {servings} {servings === 1 ? "serving" : "servings"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Ingredients
+                      </p>
+                      <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums">
+                        {recipe.ingredients.length} items
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Primary Action Row */}
+                  <div className="flex flex-wrap items-center gap-3 print:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsCookingModeOpen(true)}
+                      className="inline-flex items-center gap-2 h-11 px-6 rounded-full bg-foreground text-background hover:opacity-85 text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
+                    >
+                      <Play className="w-4 h-4 fill-current text-primary" />
+                      <span>Start Cooking Mode</span>
+                    </button>
+                    {recipe.sourceUrl && (
+                      <a
+                        href={recipe.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                      >
+                        <span>Original Source</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* Core Two-Column Layout: Sticky Ingredients + Instructions */}
+              <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-12 pt-2 border-t border-border">
+                {/* Left Column: Ingredients + Scaler + Nutrition */}
+                <div className="md:col-span-5 lg:col-span-4 md:sticky md:top-8 self-start space-y-6 pt-6 md:pt-8">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.innerWidth < 768) {
+                          setIsIngredientsCollapsed(!isIngredientsCollapsed);
                         }
-                      } else {
-                        currentParallelBlock.push({ step, idx });
-                      }
-                    } else {
-                      currentParallelBlock = null;
-                      blocks.push({ type: 'single', step, idx });
-                    }
-                  });
+                      }}
+                      className="flex items-center gap-2 text-left md:cursor-default cursor-pointer"
+                    >
+                      <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                        Ingredients
+                      </h2>
+                      <ChevronDown
+                        className={`w-4 h-4 text-muted-foreground md:hidden transition-transform duration-200 ${
+                          isIngredientsCollapsed ? "" : "rotate-180"
+                        }`}
+                      />
+                    </button>
 
-                  return (
-                    <div className="flex flex-col items-center space-y-8 relative">
-                      {/* Center vertical spine line */}
-                      <div className="absolute left-1/2 top-4 bottom-4 w-[2px] -ml-[1px] bg-neutral-200 dark:bg-neutral-700 z-0"></div>
-                      
-                      {blocks.map((block, bIdx) => {
-                        if (block.type === 'single') {
-                          return (
-                            <div key={bIdx} className="w-full relative z-10">
-                              <InstructionStep 
-                                step={block.step}
-                                idx={block.idx}
-                                isCompleted={completedSteps.has(block.idx)}
-                                isParallel={false}
-                                onToggleComplete={() => {
-                                  const newSet = new Set(completedSteps);
-                                  if (newSet.has(block.idx)) newSet.delete(block.idx);
-                                  else newSet.add(block.idx);
-                                  setCompletedSteps(newSet);
-                                }}
-                              />
+                    {/* Compact Cook Well Servings Stepper Pill */}
+                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 p-1 print:hidden">
+                      <button
+                        type="button"
+                        onClick={() => servings > 1 && setServings((s) => s - 1)}
+                        disabled={servings <= 1}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-foreground hover:bg-background disabled:opacity-30 transition-colors cursor-pointer"
+                        aria-label="Decrease servings"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-2 text-xs font-semibold tabular-nums text-foreground">
+                        {servings}x
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setServings((s) => s + 1)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-foreground hover:bg-background transition-colors cursor-pointer"
+                        aria-label="Increase servings"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {isIngredientsCollapsed && (
+                    <p className="text-xs text-muted-foreground md:hidden -mt-3">
+                      {recipe.ingredients.length} ingredients · {completedIngredients.size} checked
+                    </p>
+                  )}
+
+                  <div
+                    className={`transition-all duration-300 overflow-hidden ${
+                      isIngredientsCollapsed
+                        ? "max-h-0 opacity-0 md:max-h-none md:opacity-100"
+                        : "max-h-[2000px] opacity-100"
+                    }`}
+                  >
+                    <ul className="divide-y divide-border/70 border-y border-border/70">
+                      {recipe.ingredients.map((ing, idx) => {
+                        const isCompleted = completedIngredients.has(idx);
+                        return (
+                          <li
+                            key={idx}
+                            onClick={() => {
+                              const next = new Set(completedIngredients);
+                              if (next.has(idx)) next.delete(idx);
+                              else next.add(idx);
+                              setCompletedIngredients(next);
+                            }}
+                            className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 -mx-2 px-2 rounded-lg transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span
+                                className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                  isCompleted
+                                    ? "bg-primary border-primary text-primary-foreground"
+                                    : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
+                                }`}
+                              >
+                                {isCompleted && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
+                              </span>
+                              <span
+                                className={`text-sm leading-snug transition-colors ${
+                                  isCompleted
+                                    ? "line-through text-muted-foreground/60"
+                                    : "text-foreground"
+                                }`}
+                              >
+                                {formatIngredientName(ing.name)}
+                              </span>
                             </div>
-                          );
-                        } else {
-                          // Parallel block
-                          const gridCols = block.steps.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3';
-                          
-                          // For gap-8 (2rem = 32px) on md, the center of columns:
-                          // Col 1 center = calc(25% - 8px)
-                          // Col 2 center (if 2 cols) = calc(75% + 8px)
-                          // Distance from edge = calc(25% - 8px)
-                          const edgeDist = block.steps.length === 2 ? 'calc(25% - 8px)' : 'calc(16.666% - 10px)';
+                            <span
+                              className={`font-mono text-xs tabular-nums text-right shrink-0 ${
+                                isCompleted ? "text-muted-foreground/50" : "text-muted-foreground"
+                              }`}
+                            >
+                              {formatAmount(ing.amount)} {ing.unit}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
 
-                          return (
-                            <div key={bIdx} className="w-full relative z-10 flex flex-col items-center">
-                              {/* Horizontal branching line for Desktop */}
-                              <div className="hidden md:block absolute top-[15px] h-[2px] bg-neutral-200 dark:bg-neutral-700 z-0" style={{ left: edgeDist, right: edgeDist }}></div>
-                              
-                              <div className={`w-full grid grid-cols-1 ${gridCols} gap-6 md:gap-8 relative z-10`}>
-                                {block.steps.map(s => (
-                                  <InstructionStep 
+                    {/* Nutrition Summary (if present) */}
+                    {recipe.nutrition && (
+                      <div className="mt-6 rounded-2xl border border-border bg-secondary/40 p-4 print:hidden">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                          Nutrition · Per Serving
+                        </p>
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <div>
+                            <p className="text-base font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.calories}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">kcal</p>
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.protein}g
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Protein</p>
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.carbs}g
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Carbs</p>
+                          </div>
+                          <div>
+                            <p className="text-base font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.fat}g
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Fat</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Method / Instructions */}
+                <div className="md:col-span-7 lg:col-span-8 pt-2 md:pt-8 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                      Method
+                    </h2>
+                    <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                      {completedSteps.size} / {recipe.instructions.length} completed
+                    </span>
+                  </div>
+
+                  <div>
+                    {(() => {
+                      type InstructionBlock =
+                        | { type: "single"; step: string; idx: number }
+                        | { type: "parallel"; steps: { step: string; idx: number }[] };
+                      const blocks: InstructionBlock[] = [];
+                      let currentParallelBlock: { step: string; idx: number }[] | null = null;
+
+                      recipe.instructions.forEach((step, idx) => {
+                        const lowerStep = step.toLowerCase().trim();
+                        const isParallel =
+                          idx > 0 &&
+                          (lowerStep.startsWith("meanwhile") ||
+                            lowerStep.startsWith("while") ||
+                            lowerStep.startsWith("in parallel") ||
+                            lowerStep.startsWith("separately") ||
+                            lowerStep.startsWith("at the same time") ||
+                            lowerStep.startsWith("for the ") ||
+                            lowerStep.startsWith("to make the ") ||
+                            lowerStep.startsWith("prepare the "));
+
+                        if (isParallel) {
+                          if (!currentParallelBlock) {
+                            const lastBlock = blocks.pop();
+                            if (lastBlock?.type === "single") {
+                              currentParallelBlock = [lastBlock, { step, idx }];
+                              blocks.push({ type: "parallel", steps: currentParallelBlock });
+                            } else if (lastBlock?.type === "parallel") {
+                              lastBlock.steps.push({ step, idx });
+                              blocks.push(lastBlock);
+                              currentParallelBlock = lastBlock.steps;
+                            } else {
+                              blocks.push({ type: "single", step, idx });
+                            }
+                          } else {
+                            currentParallelBlock.push({ step, idx });
+                          }
+                        } else {
+                          currentParallelBlock = null;
+                          blocks.push({ type: "single", step, idx });
+                        }
+                      });
+
+                      return (
+                        <div className="divide-y divide-border/60">
+                          {blocks.map((block, bIdx) => {
+                            if (block.type === "single") {
+                              return (
+                                <div key={bIdx} className="py-1">
+                                  <InstructionStep
+                                    step={block.step}
+                                    idx={block.idx}
+                                    isCompleted={completedSteps.has(block.idx)}
+                                    isParallel={false}
+                                    onToggleComplete={() => {
+                                      const next = new Set(completedSteps);
+                                      if (next.has(block.idx)) next.delete(block.idx);
+                                      else next.add(block.idx);
+                                      setCompletedSteps(next);
+                                    }}
+                                  />
+                                </div>
+                              );
+                            }
+
+                            const gridCols = block.steps.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
+                            return (
+                              <div key={bIdx} className={`py-4 grid grid-cols-1 ${gridCols} gap-3`}>
+                                {block.steps.map((s) => (
+                                  <InstructionStep
                                     key={s.idx}
                                     step={s.step}
                                     idx={s.idx}
                                     isCompleted={completedSteps.has(s.idx)}
                                     isParallel={true}
                                     onToggleComplete={() => {
-                                      const newSet = new Set(completedSteps);
-                                      if (newSet.has(s.idx)) newSet.delete(s.idx);
-                                      else newSet.add(s.idx);
-                                      setCompletedSteps(newSet);
+                                      const next = new Set(completedSteps);
+                                      if (next.has(s.idx)) next.delete(s.idx);
+                                      else next.add(s.idx);
+                                      setCompletedSteps(next);
                                     }}
                                   />
                                 ))}
                               </div>
-                            </div>
-                          );
-                        }
-                      })}
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Notes & Technique Callout */}
+                  {recipe.notes && (
+                    <div className="mt-8 rounded-2xl border border-border bg-secondary/50 p-5 sm:p-6 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Utensils className="w-4 h-4 text-primary-dark" />
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Notes &amp; Technique
+                        </h3>
+                      </div>
+                      <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+                        {(() => {
+                          let parsedNotes = recipe.notes
+                            .split("\n")
+                            .map((n) => n.trim())
+                            .filter(Boolean);
+                          if (parsedNotes.length === 1 && parsedNotes[0].includes(". ")) {
+                            parsedNotes = parsedNotes[0]
+                              .split(/\.\s+/)
+                              .map((n) => n.trim())
+                              .filter(Boolean)
+                              .map((n) => (n.endsWith(".") ? n : n + "."));
+                          }
+                          return parsedNotes.map((note, idx) => {
+                            const cleanNote = note
+                              .replace(/^[-*•]\s*/, "")
+                              .replace(/^\d+\.\s*/, "");
+                            return (
+                              <li key={idx} className="flex items-start gap-2.5">
+                                <span className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                                <span>{cleanNote}</span>
+                              </li>
+                            );
+                          });
+                        })()}
+                      </ul>
                     </div>
-                  );
-                })()}
-              </div>
-            </div>
+                  )}
+                </div>
+              </section>
+            </motion.div>
           </div>
 
-          {/* Notes section if exists */}
-          {recipe.notes && (
-            <div className="pt-6 border-t border-neutral-100 dark:border-neutral-700 text-sm space-y-3">
-              <h4 className="font-semibold text-neutral-900 dark:text-neutral-50">Notes</h4>
-              <ul className="list-disc pl-5 space-y-1.5 text-neutral-600 dark:text-neutral-400 leading-relaxed marker:text-accent-500">
-                {(() => {
-                  let parsedNotes = recipe.notes.split('\n').map(n => n.trim()).filter(Boolean);
-                  
-                  // If it's a single line with multiple sentences, split by period + space
-                  if (parsedNotes.length === 1 && parsedNotes[0].includes('. ')) {
-                    parsedNotes = parsedNotes[0]
-                      .split(/\.\s+/)
-                      .map(n => n.trim())
-                      .filter(Boolean)
-                      .map(n => n.endsWith('.') ? n : n + '.');
-                  }
-
-                  return parsedNotes.map((note, idx) => {
-                    // Clean up existing bullet characters from the start of the string so we don't double-bullet
-                    const cleanNote = note.replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, '');
-                    return <li key={idx}>{cleanNote}</li>;
-                  });
-                })()}
-              </ul>
-            </div>
-          )}
-
-          {/* Nutrition Dropdown */}
-          {recipe.nutrition && (
-            <div className="pt-6 border-t border-neutral-100 dark:border-neutral-700 print:hidden">
-              <details className="group [&_summary::-webkit-details-marker]:hidden">
-                <summary className="flex items-center justify-between cursor-pointer list-none py-2 select-none text-neutral-900 dark:text-neutral-50 hover:text-accent-500 dark:hover:text-accent-400 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-accent-500" />
-                    <h4 className="font-medium text-sm">Estimated Nutritional Values (per serving)</h4>
-                  </div>
-                  <ChevronDown className="w-4 h-4 transition-transform duration-300 group-open:-rotate-180 text-neutral-400" />
-                </summary>
-                <div className="grid grid-cols-4 gap-4 pt-4 pb-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl text-center border border-neutral-100 dark:border-neutral-800">
-                    <p className="text-xl font-bold text-neutral-900 dark:text-neutral-50">{recipe.nutrition.calories}</p>
-                    <p className="text-xs uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400 mt-1">Calories</p>
-                  </div>
-                  <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl text-center border border-neutral-100 dark:border-neutral-800">
-                    <p className="text-xl font-bold text-neutral-900 dark:text-neutral-50">{recipe.nutrition.protein}g</p>
-                    <p className="text-xs uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400 mt-1">Protein</p>
-                  </div>
-                  <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl text-center border border-neutral-100 dark:border-neutral-800">
-                    <p className="text-xl font-bold text-neutral-900 dark:text-neutral-50">{recipe.nutrition.carbs}g</p>
-                    <p className="text-xs uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400 mt-1">Carbs</p>
-                  </div>
-                  <div className="bg-neutral-50 dark:bg-neutral-900/50 p-4 rounded-xl text-center border border-neutral-100 dark:border-neutral-800">
-                    <p className="text-xl font-bold text-neutral-900 dark:text-neutral-50">{recipe.nutrition.fat}g</p>
-                    <p className="text-xs uppercase tracking-wider font-semibold text-neutral-500 dark:text-neutral-400 mt-1">Fat</p>
-                  </div>
-                </div>
-              </details>
-            </div>
-          )}
-
-          {recipe.sourceUrl && (
-            <p className="text-xs text-neutral-400 dark:text-neutral-500 print:hidden mt-8">
-              Source:{" "}
-              <a
-                href={recipe.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:text-neutral-900 dark:hover:text-white"
-              >
-                {recipe.sourceUrl}
-              </a>
-            </p>
-          )}
-
-          {/* Quick Add to Meal Planner Section */}
-          {isAdmin && (
-            <div className="pt-8 mt-8 border-t border-neutral-100 dark:border-neutral-700 print:hidden space-y-4">
-              <h4 className="text-xs font-semibold text-neutral-900 dark:text-neutral-50 uppercase tracking-widest">
-                Add to Meal Plan
-              </h4>
-              <div className="flex flex-col sm:flex-row gap-4 max-w-lg">
-                <input
-                  type="date"
-                  value={plannerDate}
-                  onChange={(e) => setPlannerDate(e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 text-sm border border-neutral-200 dark:border-neutral-600 bg-transparent text-neutral-900 dark:text-neutral-50 rounded-md focus:outline-none focus:border-neutral-900 dark:focus:border-white focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-                />
-                <select
-                  value={plannerMeal}
-                  onChange={(e) => setPlannerMeal(e.target.value as any)}
-                  className="w-full sm:w-auto px-3 py-2 text-sm border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 rounded-md focus:outline-none focus:border-neutral-900 dark:focus:border-white focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white"
-                >
-                  <option value="Breakfast">Breakfast</option>
-                  <option value="Lunch">Lunch</option>
-                  <option value="Dinner">Dinner</option>
-                  <option value="Snack">Snack</option>
-                </select>
-                <button
-                  onClick={handlePlanMeal}
-                  disabled={isPlanning || !plannerDate}
-                  className="px-5 py-2 bg-neutral-900 dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 font-medium text-sm rounded-md transition-colors disabled:opacity-50 whitespace-nowrap"
-                >
-                  {isPlanning ? "Adding..." : "Add to Plan"}
-                </button>
-              </div>
-
-              {plannedSuccess && (
-                <p className="text-xs text-neutral-500 font-medium animate-fade-in">
-                  Added to your meal plan.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </motion.div>
-
-      {/* Step-by-Step Full-Screen Cooking Mode */}
-      <CookingMode
-        recipe={recipe}
-        servings={servings}
-        isOpen={isCookingModeOpen}
-        completedSteps={completedSteps}
-        completedIngredients={completedIngredients}
-        onToggleStepComplete={(stepIdx) => {
-          const newSet = new Set(completedSteps);
-          if (newSet.has(stepIdx)) newSet.delete(stepIdx);
-          else newSet.add(stepIdx);
-          setCompletedSteps(newSet);
-        }}
-        onToggleIngredientComplete={(ingIdx) => {
-          const newSet = new Set(completedIngredients);
-          if (newSet.has(ingIdx)) newSet.delete(ingIdx);
-          else newSet.add(ingIdx);
-          setCompletedIngredients(newSet);
-        }}
-        onClose={() => setIsCookingModeOpen(false)}
-      />
+          {/* Step-by-Step Full-Screen "Let's Cook" Mode */}
+          <CookingMode
+            recipe={recipe}
+            servings={servings}
+            isOpen={isCookingModeOpen}
+            completedSteps={completedSteps}
+            completedIngredients={completedIngredients}
+            onToggleStepComplete={(stepIdx) => {
+              const next = new Set(completedSteps);
+              if (next.has(stepIdx)) next.delete(stepIdx);
+              else next.add(stepIdx);
+              setCompletedSteps(next);
+            }}
+            onToggleIngredientComplete={(ingIdx) => {
+              const next = new Set(completedIngredients);
+              if (next.has(ingIdx)) next.delete(ingIdx);
+              else next.add(ingIdx);
+              setCompletedIngredients(next);
+            }}
+            onClose={() => setIsCookingModeOpen(false)}
+          />
         </motion.div>
       )}
     </AnimatePresence>

@@ -292,85 +292,86 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-5">
-      {/* Search Input Bar - Mobile Optimized */}
-      <div className="space-y-2.5">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSearch();
-          }}
-          className="flex gap-2"
-        >
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              id="top-recipe-search-input"
-              type="text"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (e.target.value === "") {
-                  setHasSearched(false);
-                  setRecipes([...AUTO_RECOMMENDATIONS].sort(() => 0.5 - Math.random()).slice(0, 3));
-                }
+    <div className="w-full max-w-3xl space-y-5">
+      {/* Search Bar */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSearch();
+        }}
+        className="flex gap-2"
+      >
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-muted-foreground absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            id="top-recipe-search-input"
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (e.target.value === "") {
+                setHasSearched(false);
+                setRecipes([...AUTO_RECOMMENDATIONS].sort(() => 0.5 - Math.random()).slice(0, 3));
+              }
+            }}
+            placeholder="Search top-rated dishes (e.g. Smash Burger, Risotto)..."
+            disabled={isSearching}
+            className="w-full h-11 pl-11 pr-10 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm placeholder:text-muted-foreground"
+          />
+          {query && !isSearching && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setHasSearched(false);
+                setRecipes([...AUTO_RECOMMENDATIONS].sort(() => 0.5 - Math.random()).slice(0, 3));
               }}
-              placeholder="Search dishes (e.g. Smash Burger)..."
-              disabled={isSearching}
-              className="w-full pl-10 pr-9 py-2.5 sm:py-2.5 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-50 border border-neutral-200 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-white text-sm"
-            />
-            {query && !isSearching && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  setHasSearched(false);
-                  setRecipes([...AUTO_RECOMMENDATIONS].sort(() => 0.5 - Math.random()).slice(0, 3));
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer p-1"
-                aria-label="Clear query"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+              aria-label="Clear query"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
-          <button
-            id="find-top-recipes-btn"
-            type="submit"
-            disabled={isSearching || !query.trim()}
-            className="w-11 sm:w-11 py-2.5 bg-accent-500 dark:bg-accent-400 text-white dark:text-neutral-900 rounded-xl hover:bg-accent-600 dark:hover:bg-accent-300 transition-colors flex items-center justify-center disabled:opacity-50 shrink-0 cursor-pointer shadow-xs active:scale-95"
-            aria-label="Search recipes"
-          >
-            {isSearching ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Search className="w-5 h-5" />
-            )}
-          </button>
-        </form>
-      </div>
+        <button
+          id="find-top-recipes-btn"
+          type="submit"
+          disabled={isSearching || !query.trim()}
+          className="h-11 px-5 bg-foreground text-background rounded-full hover:opacity-85 transition-opacity flex items-center justify-center gap-2 text-sm font-medium disabled:opacity-40 shrink-0 cursor-pointer"
+          aria-label="Search recipes"
+        >
+          {isSearching ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Search className="w-4 h-4" />
+              <span className="hidden sm:inline">Search</span>
+            </>
+          )}
+        </button>
+      </form>
 
       {/* Loading State */}
       {isSearching && (
-        <div className="py-10 sm:py-12 text-center rounded-2xl bg-neutral-50/60 dark:bg-neutral-800/30 border border-neutral-100 dark:border-neutral-800 space-y-2 px-4">
-          <Loader2 className="w-6 h-6 animate-spin text-amber-600 dark:text-amber-400 mx-auto" />
-          <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+        <div className="py-12 text-center rounded-2xl bg-secondary/40 border border-border space-y-2 px-4">
+          <Loader2 className="w-5 h-5 animate-spin text-foreground mx-auto" />
+          <p className="text-sm font-medium text-foreground">
             Curating top-rated recipes...
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto">
-            Comparing culinary archives and reviews from NYT Cooking, America's Test Kitchen, Serious Eats, and master chefs.
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            Comparing archives from NYT Cooking, Serious Eats, America&apos;s Test Kitchen, and top chefs.
           </p>
         </div>
       )}
 
       {/* Error Message */}
       {error && !isSearching && (
-        <div className="p-3.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-sm rounded-xl border border-red-200 dark:border-red-800 flex items-center justify-between">
+        <div className="p-4 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs rounded-2xl border border-red-200 dark:border-red-900/50 flex items-center justify-between gap-3">
           <span>{error}</span>
-          <button 
+          <button
             onClick={() => handleSearch()}
-            className="text-xs font-semibold underline hover:no-underline ml-2 cursor-pointer shrink-0"
+            className="text-xs font-semibold underline hover:no-underline cursor-pointer shrink-0"
           >
             Retry
           </button>
@@ -379,20 +380,20 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
 
       {/* Results List */}
       {!isSearching && recipes.length > 0 && (
-        <div className="space-y-3.5 pt-1">
-          <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 px-1">
-            <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate pr-2">
-              {hasSearched ? `Results for "${query}"` : "Chef Recommended Recipes"}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-medium text-foreground truncate pr-2">
+              {hasSearched ? `Results for "${query}"` : "Curated Recommendations"}
             </span>
             <span className="shrink-0">Ranked by rating</span>
           </div>
 
-          <motion.div 
-            key={`results-${query}-${hasSearched ? 'searched' : 'auto'}-${recipes.length}`}
+          <motion.div
+            key={`results-${query}-${hasSearched ? "searched" : "auto"}-${recipes.length}`}
             variants={listContainerVariants}
             initial="hidden"
             animate="visible"
-            className="space-y-3.5"
+            className="space-y-3"
           >
             {recipes.map((recipe, index) => {
               const recipeId = recipe.id || String(index + 1);
@@ -418,20 +419,20 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
           </motion.div>
 
           {hasSearched && recipes.length > 0 && !error && (
-            <div className="pt-2">
+            <div className="pt-2 flex justify-center">
               <button
                 type="button"
                 onClick={() => handleSearch(undefined, true)}
                 disabled={isLoadingMore}
-                className="w-full py-3 bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 text-sm font-semibold rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 active:scale-98"
+                className="h-10 px-6 rounded-full border border-border bg-card hover:bg-secondary text-xs font-medium text-foreground transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isLoadingMore ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Loading more recipes...</span>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Loading more...</span>
                   </>
                 ) : (
-                  <span>Load More Recipes</span>
+                  <span>Show more</span>
                 )}
               </button>
             </div>
@@ -441,12 +442,12 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
 
       {/* No Results State */}
       {!isSearching && hasSearched && recipes.length === 0 && !error && (
-        <div className="text-center py-8 bg-neutral-50/50 dark:bg-neutral-800/30 rounded-2xl border border-neutral-100 dark:border-neutral-700 p-6">
-          <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            No recipes found for "{query}"
+        <div className="text-center py-10 bg-secondary/40 rounded-2xl border border-border p-6">
+          <p className="text-sm font-medium text-foreground">
+            No recipes found for &ldquo;{query}&rdquo;
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-            Try a simpler dish keyword like "Roast Potatoes" or "Smash Burger".
+          <p className="text-xs text-muted-foreground mt-1">
+            Try a simpler dish keyword like &ldquo;Roast Potatoes&rdquo; or &ldquo;Smash Burger&rdquo;.
           </p>
         </div>
       )}

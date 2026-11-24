@@ -1,10 +1,10 @@
 import React from "react";
-import { 
-  Star, 
-  Clock, 
-  Users, 
-  Check, 
-  ChevronDown, 
+import {
+  Star,
+  Clock,
+  Users,
+  Check,
+  ChevronDown,
   Loader2,
   BookmarkPlus,
   ArrowRight,
@@ -12,10 +12,10 @@ import {
   Utensils,
   BookOpen,
   Flame,
-  Globe
+  Globe,
 } from "lucide-react";
 import { TopRatedRecipe } from "../types";
-import { formatTime } from "../lib/utils";
+import { formatTime, getMealTypeColor } from "../lib/utils";
 
 interface Props {
   recipe: TopRatedRecipe;
@@ -36,79 +36,73 @@ const TopRatedSearchCard: React.FC<Props> = ({
   isSavedThis,
   onExpand,
   onSelect,
-  onQuickSave
+  onQuickSave,
 }) => {
   return (
-    <div className="bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 rounded-xl p-4 sm:p-5 transition-all hover:shadow-md hover:border-neutral-200 dark:hover:border-neutral-600">
-      {/* Top Bar: Ranking, Source, Rating */}
-      <div className="flex items-start justify-between gap-3">
+    <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 transition-colors hover:border-foreground/20">
+      <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          {/* Badge Cluster */}
-          <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 flex-wrap">
-            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-neutral-900 text-white dark:bg-neutral-700 dark:text-neutral-50">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-full bg-foreground text-background">
               #{index + 1}
             </span>
 
             {recipe.source && (
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50 truncate max-w-[200px] sm:max-w-none">
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-secondary text-foreground truncate max-w-[200px] sm:max-w-none">
                 {recipe.source}
               </span>
             )}
 
             {recipe.rating && (
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-neutral-800 dark:text-neutral-200 bg-neutral-100 dark:bg-neutral-700/50 px-2 py-0.5 rounded-md border border-neutral-200/50 dark:border-neutral-600/50">
-                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                {recipe.rating}
-                {recipe.reviewCount && (
-                  <span className="font-normal text-neutral-500 dark:text-neutral-400 text-[11px] hidden xs:inline">
-                    ({recipe.reviewCount})
-                  </span>
-                )}
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground tabular-nums">
+                <Star className="w-3 h-3 fill-foreground text-foreground" />
+                <span className="text-foreground font-semibold">{recipe.rating}</span>
+                {recipe.reviewCount && <span>({recipe.reviewCount})</span>}
               </span>
             )}
           </div>
 
-          <h3 className="text-sm sm:text-base font-bold text-neutral-900 dark:text-neutral-50 leading-tight">
+          <h3 className="text-base font-semibold text-foreground tracking-tight leading-snug">
             {recipe.title}
           </h3>
           {recipe.description && (
-            <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-1 line-clamp-2 leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
               {recipe.description}
             </p>
           )}
         </div>
 
-        {/* Desktop Quick Action Buttons */}
-        <div className="hidden sm:flex flex-col gap-2 shrink-0">
+        {/* Desktop Actions */}
+        <div className="hidden sm:flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={onQuickSave}
             disabled={isSavingThis || isSavedThis}
-            className={`h-9 px-3 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 active:scale-98 ${
+            className={`h-9 px-3.5 text-xs font-medium rounded-full border transition-colors flex items-center gap-1.5 cursor-pointer ${
               isSavedThis
-                ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-400"
-                : "border-neutral-200 dark:border-neutral-600 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
+                ? "bg-primary/15 border-primary/40 text-foreground"
+                : "border-border text-foreground hover:bg-secondary"
             }`}
           >
             {isSavingThis ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : isSavedThis ? (
               <>
-                <Check className="w-4 h-4 text-green-600 dark:text-green-500" />
+                <Check className="w-3.5 h-3.5 text-primary-dark" strokeWidth={2.5} />
                 <span>Saved</span>
               </>
             ) : (
               <>
-                <BookmarkPlus className="w-4 h-4" />
-                <span>Save Quick</span>
+                <BookmarkPlus className="w-3.5 h-3.5" />
+                <span>Quick Save</span>
               </>
             )}
           </button>
-          
+
           <button
             type="button"
             onClick={onSelect}
-            className="h-9 px-3 text-xs font-semibold bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-xl hover:bg-neutral-800 dark:hover:bg-white flex items-center justify-center gap-1.5 active:scale-98 shadow-xs"
+            className="h-9 px-4 text-xs font-medium bg-foreground text-background rounded-full hover:opacity-85 transition-opacity flex items-center gap-1.5 cursor-pointer"
           >
             <span>Customize</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -116,70 +110,75 @@ const TopRatedSearchCard: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Meta Bar */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-[11px] sm:text-xs">
-        <div className="flex items-center gap-1.5 font-medium text-neutral-700 dark:text-neutral-300">
-          <Globe className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
-          {recipe.cuisine} • {recipe.mealType || "Main"}
-        </div>
-        
+      {/* Meta Strip */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-3 text-xs text-muted-foreground">
+        {recipe.mealType && (
+          <span
+            className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full shrink-0 ${getMealTypeColor(
+              recipe.mealType
+            )}`}
+          >
+            {recipe.mealType}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1.5">
+          <Globe className="w-3.5 h-3.5" />
+          {recipe.cuisine}
+        </span>
         {recipe.cookingTime && (
-          <div className="flex items-center gap-1.5 font-medium text-neutral-700 dark:text-neutral-300">
-            <Clock className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <Clock className="w-3.5 h-3.5" />
             {formatTime(recipe.cookingTime)}
-          </div>
+          </span>
         )}
-
         {recipe.servings && (
-          <div className="flex items-center gap-1.5 font-medium text-neutral-700 dark:text-neutral-300">
-            <Users className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+          <span className="inline-flex items-center gap-1.5 tabular-nums">
+            <Users className="w-3.5 h-3.5" />
             {recipe.servings} servings
-          </div>
+          </span>
         )}
-
         {recipe.nutrition?.calories && (
-          <span className="inline-flex items-center gap-1 text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-700/50 px-2 py-1 rounded-md">
-            <Flame className="w-3.5 h-3.5 text-orange-500 dark:text-orange-400" />
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <Flame className="w-3.5 h-3.5" />
             {recipe.nutrition.calories} kcal
           </span>
         )}
       </div>
 
-      {/* Highlighted Chef's Secret Technique Box */}
       {recipe.keyTechnique && (
-        <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200/70 dark:border-amber-800/30 rounded-xl">
-          <div className="flex items-center gap-1.5 text-amber-900 dark:text-amber-400 font-bold text-xs uppercase tracking-wider">
-            <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>Chef's Secret Technique</span>
+        <div className="mt-3 p-3.5 bg-secondary/60 border border-border rounded-xl">
+          <div className="flex items-center gap-1.5 text-foreground font-semibold text-[11px] uppercase tracking-wider">
+            <Lightbulb className="w-3.5 h-3.5 text-primary-dark shrink-0" />
+            <span>Key Technique</span>
           </div>
-          <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 font-medium leading-relaxed mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed mt-1">
             {recipe.keyTechnique}
           </p>
         </div>
       )}
 
-      {/* Mobile Action Buttons (Thumb-friendly & full-width) */}
-      <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 sm:hidden">
+      {/* Mobile Actions */}
+      <div className="grid grid-cols-2 gap-2 mt-3.5 pt-3.5 border-t border-border sm:hidden">
         <button
           type="button"
           onClick={onQuickSave}
           disabled={isSavingThis || isSavedThis}
-          className={`h-10 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 active:scale-98 ${
+          className={`h-9 text-xs font-medium rounded-full border flex items-center justify-center gap-1.5 cursor-pointer ${
             isSavedThis
-              ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800/50 dark:text-green-400"
-              : "border-neutral-200 dark:border-neutral-600 text-neutral-800 dark:text-neutral-200 bg-neutral-50/80 dark:bg-neutral-800/80 hover:bg-neutral-100 dark:hover:bg-neutral-700"
+              ? "bg-primary/15 border-primary/40 text-foreground"
+              : "border-border text-foreground hover:bg-secondary"
           }`}
         >
           {isSavingThis ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
           ) : isSavedThis ? (
             <>
-              <Check className="w-4 h-4 text-green-600 dark:text-green-500" />
+              <Check className="w-3.5 h-3.5 text-primary-dark" />
               <span>Saved</span>
             </>
           ) : (
             <>
-              <BookmarkPlus className="w-4 h-4" />
+              <BookmarkPlus className="w-3.5 h-3.5" />
               <span>Save</span>
             </>
           )}
@@ -188,93 +187,75 @@ const TopRatedSearchCard: React.FC<Props> = ({
         <button
           type="button"
           onClick={onSelect}
-          className="h-10 text-xs font-semibold bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-xl flex items-center justify-center gap-1.5 active:scale-98 shadow-xs"
+          className="h-9 text-xs font-medium bg-foreground text-background rounded-full flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <span>Customize</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Clean Dropdown Accordion for Ingredients & Steps */}
-      <div className="mt-3 pt-2 sm:pt-2.5 border-t border-neutral-100 dark:border-neutral-700">
+      {/* Preview Accordion */}
+      <div className="mt-3 pt-2.5 border-t border-border/70">
         <button
           type="button"
           onClick={onExpand}
-          className="w-full min-h-[40px] flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-700/50 transition-colors cursor-pointer group"
+          className="w-full flex items-center justify-between py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
-          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300 group-hover:text-neutral-900 dark:group-hover:text-neutral-100">
-            <Utensils className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-700 dark:group-hover:text-neutral-300 shrink-0" />
-            <span className="truncate">
-              Ingredients ({recipe.ingredients?.length || 0}) & Steps ({recipe.instructions?.length || 0})
+          <span className="flex items-center gap-1.5 truncate">
+            <Utensils className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              Ingredients ({recipe.ingredients?.length || 0}) &amp; Steps ({recipe.instructions?.length || 0})
             </span>
-          </div>
-
-          <div className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400 shrink-0 ml-1">
-            <span className="hidden xs:inline">{isExpanded ? "Hide" : "View"}</span>
-            <ChevronDown 
-              className={`w-4 h-4 transition-transform duration-200 ${
-                isExpanded ? "rotate-180" : ""
-              }`} 
-            />
-          </div>
+          </span>
+          <span className="flex items-center gap-1 shrink-0 ml-2">
+            <span>{isExpanded ? "Hide" : "Preview"}</span>
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+          </span>
         </button>
 
-        {/* Dropdown Content */}
         {isExpanded && (
-          <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-700 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {/* Ingredients Panel */}
-              <div className="bg-neutral-50 dark:bg-neutral-900/50 p-3.5 rounded-xl border border-neutral-100 dark:border-neutral-700/50">
-                <div className="flex items-center gap-1.5 font-bold text-neutral-900 dark:text-neutral-100 mb-2.5 pb-1.5 border-b border-neutral-200/60 dark:border-neutral-700/60">
-                  <Utensils className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-                  <span>Ingredients ({recipe.ingredients?.length || 0})</span>
-                </div>
-                <ul className="space-y-1.5">
-                  {recipe.ingredients?.map((ing, i) => (
-                    <li key={i} className="flex items-baseline justify-between text-neutral-700 dark:text-neutral-300 py-1 border-b border-neutral-100 dark:border-neutral-700/50 last:border-none">
-                      <span className="font-normal text-neutral-800 dark:text-neutral-200 pr-2">{ing.name}</span>
-                      {(ing.amount || ing.unit) && (
-                        <span className="font-semibold text-neutral-900 dark:text-neutral-100 shrink-0">
-                          {ing.amount ? `${ing.amount} ` : ""}{ing.unit || ""}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+          <div className="mt-3 pt-3 border-t border-border/70 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="bg-secondary/50 p-3.5 rounded-xl border border-border/60">
+              <div className="flex items-center gap-1.5 font-semibold text-foreground mb-2 pb-1.5 border-b border-border/60">
+                <Utensils className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Ingredients</span>
               </div>
-
-              {/* Instructions Panel */}
-              <div className="bg-neutral-50 dark:bg-neutral-900/50 p-3.5 rounded-xl border border-neutral-100 dark:border-neutral-700/50">
-                <div className="flex items-center gap-1.5 font-bold text-neutral-900 dark:text-neutral-100 mb-2.5 pb-1.5 border-b border-neutral-200/60 dark:border-neutral-700/60">
-                  <BookOpen className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
-                  <span>Instructions ({recipe.instructions?.length || 0} steps)</span>
-                </div>
-                <ol className="space-y-2.5">
-                  {recipe.instructions?.map((step, i) => (
-                    <li key={i} className="flex items-start gap-2.5 leading-relaxed text-neutral-700 dark:text-neutral-300">
-                      <span className="w-5 h-5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5">
-                        {i + 1}
+              <ul className="divide-y divide-border/50">
+                {recipe.ingredients?.map((ing, i) => (
+                  <li key={i} className="flex items-baseline justify-between py-1.5 gap-2">
+                    <span className="text-foreground">{ing.name}</span>
+                    {(ing.amount || ing.unit) && (
+                      <span className="font-mono text-muted-foreground shrink-0 tabular-nums">
+                        {ing.amount ? `${ing.amount} ` : ""}
+                        {ing.unit || ""}
                       </span>
-                      <span className="flex-1 text-xs leading-relaxed">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            {/* Chef Notes & Substitutions if provided */}
-            {recipe.notes && (
-              <div className="p-3 bg-neutral-100 dark:bg-neutral-800/80 rounded-xl text-xs text-neutral-600 dark:text-neutral-300">
-                <span className="font-bold text-neutral-900 dark:text-neutral-100">
-                  Chef's Advice & Substitutions:{" "}
-                </span>
-                {recipe.notes}
+            <div className="bg-secondary/50 p-3.5 rounded-xl border border-border/60">
+              <div className="flex items-center gap-1.5 font-semibold text-foreground mb-2 pb-1.5 border-b border-border/60">
+                <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>Method</span>
               </div>
-            )}
+              <ol className="space-y-2">
+                {recipe.instructions?.map((step, i) => (
+                  <li key={i} className="flex items-start gap-2.5 leading-relaxed text-muted-foreground">
+                    <span className="w-5 h-5 rounded-full bg-foreground text-background font-semibold text-[10px] flex items-center justify-center shrink-0 mt-0.5 tabular-nums">
+                      {i + 1}
+                    </span>
+                    <span className="flex-1 text-foreground/90">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
-}
+};
+
 export default TopRatedSearchCard;

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Sparkles, ArrowRight, Loader2, Check, RefreshCw } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Sparkles, ArrowRight, Loader2, RefreshCw } from "lucide-react";
 import { Recipe } from "../types";
 
 interface RecipeBuilderGameProps {
@@ -7,36 +8,30 @@ interface RecipeBuilderGameProps {
 }
 
 const QUESTION_BANK = [
-  { id: "star", title: "What's the star ingredient today? 🌟", type: "text", placeholder: "e.g. Chicken, Tofu, Pasta..." },
-  { id: "secondary", title: "Any secondary ingredient to throw in? 🥕", type: "text", placeholder: "e.g. Garlic, Spinach, Beans..." },
-  { id: "time", title: "How much time do you have? ⏳", type: "choice", options: ["Under 15 mins 🏃", "About 30 mins ⏰", "Take my time 🧑‍🍳", "Weekend project 🏗️"] },
-  { id: "method", title: "How are we cooking? 🔥", type: "choice", options: ["Stovetop 🍳", "Oven ♨️", "Microwave ⚡", "No-cook 🥗", "Surprise me 🎲"] },
-  { id: "vibe", title: "What's the vibe? ✨", type: "choice", options: ["Comforting 🫂", "Fresh & Light 🌱", "Spicy 🔥", "Indulgent 🤤"] },
-  { id: "mealType", title: "What meal is this for? 🍽️", type: "choice", options: ["Breakfast 🥞", "Lunch 🥪", "Dinner 🍷", "Snack 🥨"] },
-  { id: "meatPref", title: "Meat or Veggie? 🥩🥦", type: "choice", options: ["Meat please 🥩", "Vegetarian 🌱", "Don't care 🤷"] },
-  { id: "texture", title: "Texture preference? 🍞", type: "choice", options: ["Crunchy 💥", "Creamy 🥣", "Chewy 🥨", "Crispy 🍟"] },
-  { id: "weather", title: "What's the weather like? ☀️🌧️", type: "choice", options: ["Hot & Sunny ☀️", "Cold & Rainy 🌧️", "Chilly Fall 🍂", "Breezy Spring 🌸"] },
-  { id: "audience", title: "Who are we cooking for? 👥", type: "choice", options: ["Just me 👤", "Date night 🥂", "Family dinner 👨‍👩‍👧‍👦", "Party crowd 🎉"] },
-  { id: "flavor", title: "Flavor profile? 👅", type: "choice", options: ["Sweet & Savory 🍯", "Sour & Tangy 🍋", "Rich & Umami 🍄", "Spicy & Bold 🌶️"] },
-  { id: "hate", title: "Any ingredient you absolutely HATE? 🙅", type: "text", placeholder: "e.g. Cilantro, Olives, Mushrooms..." },
-  { id: "fridge", title: "What's in your fridge that needs to go? 🧊", type: "text", placeholder: "e.g. Half an onion, wilting spinach..." },
-  { id: "shape", title: "Pick a shape! 🔺", type: "choice", options: ["Round/Balls 🍡", "Long/Noodles 🍜", "Chopped/Diced 🔪", "Mashed 🥔"] },
-  { id: "effort", title: "How much effort? 😓", type: "choice", options: ["Zero effort 🛋️", "A little chopping 🔪", "I want to feel like a chef 🧑‍🍳"] },
-  { id: "tool", title: "What kitchen tool do you want to use? 🔪", type: "choice", options: ["Blender 🌪️", "Cast iron skillet 🍳", "Baking sheet ♨️", "Just a bowl 🥣"] },
-  { id: "cheese", title: "Are we feeling cheesy today? 🧀", type: "choice", options: ["Extra cheese please! 🧀", "A little sprinkle 🤏", "No cheese for me 🙅"] },
-  { id: "protein", title: "Pick a protein source! 🥚", type: "choice", options: ["Beans & Lentils 🫘", "Eggs 🍳", "Nuts & Seeds 🥜", "Meat/Poultry 🍗"] },
-  { id: "spice", title: "What's your spice tolerance? 🌶️", type: "choice", options: ["None, keep it mild 😌", "A little kick 🌶️", "Burn my tongue off 🔥"] },
-  { id: "base", title: "Pick a base! 🍚", type: "choice", options: ["Rice/Grains 🍚", "Pasta/Noodles 🍝", "Bread/Wrap 🥖", "Leafy Greens 🥗"] },
-  { id: "mood", title: "What's your current mood? 🎭", type: "choice", options: ["Lazy 🦥", "Energetic ⚡", "Adventurous 🤠", "Nostalgic 🕰️"] },
-  { id: "dominant", title: "Pick a dominant flavor! 🍋", type: "choice", options: ["Garlicky 🧄", "Lemony/Citrus 🍋", "Smoky 💨", "Herby 🌿"] },
-  { id: "health", title: "How healthy are we trying to be? 🥗", type: "choice", options: ["Health is wealth 🧘", "Balanced ⚖️", "I want comfort food 🍔", "Full cheat day 🍩"] },
-  { id: "sound", title: "Pick a cooking sound! 🍳", type: "choice", options: ["Sizzle 🥓", "Simmer 🍲", "Crunch 🥖", "Silence (no-cook) 🤫"] },
-  { id: "beverage", title: "What's your beverage pairing? 🍷", type: "choice", options: ["Water 💧", "Tea/Coffee ☕", "Juice/Soda 🥤", "Mocktail/Non-alcoholic 🍹"] },
-  { id: "secret", title: "Any secret ingredient you want to sneak in? 🤫", type: "text", placeholder: "e.g. Cinnamon, Cocoa powder, Anchovies..." },
-  { id: "region", title: "Pick a regional inspiration! 🌍", type: "choice", options: ["Mediterranean 🫒", "South Asian 🍛", "Middle Eastern 🥙", "Tex-Mex 🌮"] },
-  { id: "plating", title: "What's your plating style? 📸", type: "choice", options: ["Rustic & Messy 🏚️", "Fine Dining 🍽️", "Bowl food 🥣", "Eat from the pan 🍳"] },
-  { id: "sweetness", title: "Sweetness level? 🍯", type: "choice", options: ["No sweet 🚫", "A hint of sweetness 🤏", "Sweet & Savory 🍯🥓", "Dessert level 🍰"] },
-  { id: "color", title: "Pick a color palette! 🎨", type: "choice", options: ["Green & Vibrant 🥬", "Warm & Earthy 🍠", "Red & Fiery 🍅", "Rainbow 🌈"] }
+  { id: "star", title: "What's the star ingredient today?", type: "text", placeholder: "e.g. Chicken, Tofu, Pasta..." },
+  { id: "secondary", title: "Any secondary ingredient to throw in?", type: "text", placeholder: "e.g. Garlic, Spinach, Beans..." },
+  { id: "time", title: "How much time do you have?", type: "choice", options: ["Under 15 mins", "About 30 mins", "Take my time", "Weekend project"] },
+  { id: "method", title: "How do you want to cook?", type: "choice", options: ["Stovetop", "Oven", "Microwave", "No-cook", "Surprise me"] },
+  { id: "vibe", title: "What's the vibe?", type: "choice", options: ["Comforting", "Fresh & Light", "Spicy", "Indulgent"] },
+  { id: "mealType", title: "What meal is this for?", type: "choice", options: ["Breakfast", "Lunch", "Dinner", "Snack"] },
+  { id: "meatPref", title: "Protein preference?", type: "choice", options: ["Meat or Poultry", "Vegetarian", "Either works"] },
+  { id: "texture", title: "Texture you're craving?", type: "choice", options: ["Crunchy", "Creamy", "Chewy", "Crispy"] },
+  { id: "weather", title: "What's the weather like?", type: "choice", options: ["Hot & Sunny", "Cold & Rainy", "Chilly Fall", "Breezy Spring"] },
+  { id: "audience", title: "Who are you cooking for?", type: "choice", options: ["Just me", "Date night", "Family dinner", "Hosting a crowd"] },
+  { id: "flavor", title: "Pick a flavor profile", type: "choice", options: ["Sweet & Savory", "Bright & Tangy", "Rich & Umami", "Spicy & Bold"] },
+  { id: "hate", title: "Any ingredient you want to avoid?", type: "text", placeholder: "e.g. Cilantro, Olives, Mushrooms..." },
+  { id: "fridge", title: "Anything in the fridge to use up?", type: "text", placeholder: "e.g. Half an onion, wilting spinach..." },
+  { id: "effort", title: "How much effort tonight?", type: "choice", options: ["Minimal prep", "Some chopping", "Full chef mode"] },
+  { id: "tool", title: "Preferred kitchen tool?", type: "choice", options: ["Blender", "Cast iron skillet", "Sheet pan", "One pot"] },
+  { id: "cheese", title: "How much cheese?", type: "choice", options: ["Extra cheesy", "A light sprinkle", "No cheese"] },
+  { id: "protein", title: "Pick a protein source", type: "choice", options: ["Beans & Lentils", "Eggs", "Nuts & Seeds", "Meat or Poultry"] },
+  { id: "spice", title: "Spice level?", type: "choice", options: ["Mild", "Medium kick", "Very spicy"] },
+  { id: "base", title: "Pick a base", type: "choice", options: ["Rice & Grains", "Pasta & Noodles", "Bread or Wrap", "Leafy Greens"] },
+  { id: "dominant", title: "Pick a dominant note", type: "choice", options: ["Garlicky", "Citrusy", "Smoky", "Herby"] },
+  { id: "health", title: "Nutrition goal?", type: "choice", options: ["High protein & light", "Balanced", "Comfort food", "Indulgent treat"] },
+  { id: "secret", title: "Any secret ingredient to sneak in?", type: "text", placeholder: "e.g. Miso, Cinnamon, Anchovies..." },
+  { id: "region", title: "Pick a regional inspiration", type: "choice", options: ["Mediterranean", "South Asian", "Middle Eastern", "Tex-Mex"] },
+  { id: "plating", title: "Serving style?", type: "choice", options: ["Rustic family-style", "Composed plate", "Grain or noodle bowl", "Straight from the skillet"] },
 ];
 
 export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGameProps) {
@@ -45,8 +40,6 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
   const [currentInput, setCurrentInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Dynamically select 8 random questions when the component mounts
   const [selectedQuestions, setSelectedQuestions] = useState<typeof QUESTION_BANK>([]);
 
   useEffect(() => {
@@ -55,11 +48,15 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
   }, []);
 
   if (selectedQuestions.length === 0) {
-    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-neutral-400" /></div>;
+    return (
+      <div className="flex justify-center py-24">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   const question = selectedQuestions[currentIndex];
-  const progress = ((currentIndex) / selectedQuestions.length) * 100;
+  const progress = ((currentIndex + 1) / selectedQuestions.length) * 100;
 
   const handleNext = async (choice?: string) => {
     const answer = choice || currentInput;
@@ -70,7 +67,7 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
     setCurrentInput("");
 
     if (currentIndex < selectedQuestions.length - 1) {
-      setCurrentIndex(curr => curr + 1);
+      setCurrentIndex((curr) => curr + 1);
     } else {
       await generateRecipe(newAnswers);
     }
@@ -92,12 +89,10 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
 
       const recipe: Recipe = await res.json();
       onRecipeGenerated(recipe);
-      
-      // Reset for next time
       setCurrentIndex(0);
       setAnswers({});
     } catch (err: any) {
-      setError(err.message || "Oops, something went wrong in the kitchen.");
+      setError(err.message || "Something went wrong while building your recipe.");
     } finally {
       setIsGenerating(false);
     }
@@ -105,15 +100,18 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
 
   if (isGenerating) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
-        <div className="w-20 h-20 bg-accent-50 dark:bg-accent-500/10 rounded-full flex items-center justify-center mb-4 relative">
-          <Sparkles className="w-10 h-10 text-accent-500 dark:text-accent-400 animate-pulse" />
-          <div className="absolute inset-0 border-4 border-accent-200 dark:border-accent-900 border-t-accent-500 dark:border-t-accent-400 rounded-full animate-spin"></div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-5">
+        <div className="w-14 h-14 rounded-full bg-secondary border border-border flex items-center justify-center relative">
+          <Sparkles className="w-6 h-6 text-primary-dark animate-pulse" />
         </div>
-        <h2 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">Cooking up your recipe...</h2>
-        <p className="text-neutral-500 dark:text-neutral-400 max-w-sm">
-          Our AI chef is mixing your ingredients, adding a pinch of magic, and writing down the steps.
-        </p>
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-semibold tracking-tight text-foreground">
+            Building your custom recipe...
+          </h2>
+          <p className="text-sm text-muted-foreground max-w-sm">
+            Combining your ingredients, technique preferences, and flavor profile.
+          </p>
+        </div>
       </div>
     );
   }
@@ -121,80 +119,89 @@ export default function RecipeBuilderGame({ onRecipeGenerated }: RecipeBuilderGa
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center text-red-500 dark:text-red-400 mb-2">
-          ❌
-        </div>
-        <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-50">Oh no!</h2>
-        <p className="text-neutral-500 dark:text-neutral-400">{error}</p>
+        <h2 className="text-xl font-semibold text-foreground">Couldn&apos;t generate recipe</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">{error}</p>
         <button
           onClick={() => generateRecipe(answers)}
-          className="mt-4 px-6 py-3 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-full font-medium hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors flex items-center gap-2"
+          className="mt-2 h-11 px-6 bg-foreground text-background rounded-full text-sm font-medium hover:opacity-85 transition-opacity flex items-center gap-2 cursor-pointer"
         >
-          <RefreshCw className="w-4 h-4" /> Try Again
+          <RefreshCw className="w-4 h-4" />
+          <span>Try Again</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4 flex flex-col min-h-[70vh]">
-      
-      {/* Progress Bar */}
-      <div className="mb-16">
-        <div className="flex justify-between items-end mb-3">
-          <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-400 dark:text-neutral-500">Curating Experience</span>
-          <span className="font-editorial italic text-lg text-accent-600 dark:text-accent-400">{currentIndex + 1} / {selectedQuestions.length}</span>
+    <div className="max-w-2xl mx-auto py-8 sm:py-14 flex flex-col min-h-[65vh]">
+      {/* Clean Progress Header */}
+      <div className="mb-12 space-y-3">
+        <div className="flex justify-between items-center text-xs">
+          <span className="font-medium text-muted-foreground">Recipe Framework Builder</span>
+          <span className="font-mono tabular-nums text-muted-foreground">
+            {currentIndex + 1} / {selectedQuestions.length}
+          </span>
         </div>
-        <div className="w-full bg-neutral-100 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-          <div 
-            className="bg-accent-500 dark:bg-accent-400 h-full rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+        <div className="w-full bg-secondary h-1 rounded-full overflow-hidden">
+          <div
+            className="bg-primary h-full rounded-full transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      {/* Question Card */}
-      <div className="flex-1 flex flex-col justify-center animate-fade-in">
-        <h2 className="text-4xl md:text-5xl font-bold text-neutral-900 dark:text-neutral-50 mb-12 text-center leading-tight font-editorial">
-          {question.title}
-        </h2>
+      {/* Question Stage */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={question.id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="flex-1 flex flex-col justify-center space-y-8"
+        >
+          <h2 className="text-3xl sm:text-4xl font-semibold text-foreground tracking-[-0.025em] leading-tight text-center">
+            {question.title}
+          </h2>
 
-        {question.type === "text" ? (
-          <div className="max-w-md mx-auto w-full space-y-6">
-            <input
-              type="text"
-              autoFocus
-              value={currentInput}
-              onChange={(e) => setCurrentInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleNext();
-              }}
-              placeholder={question.placeholder}
-              className="w-full text-center text-2xl py-6 bg-transparent text-neutral-900 dark:text-neutral-50 border-b-2 border-neutral-200 dark:border-neutral-800 focus:outline-none focus:border-accent-500 dark:focus:border-accent-400 transition-all placeholder:text-neutral-200 dark:placeholder:text-neutral-800 font-editorial italic"
-            />
-            <button
-              onClick={() => handleNext()}
-              disabled={!currentInput.trim()}
-              className="w-full py-5 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-2xl font-bold text-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-3 active:scale-95"
-            >
-              Continue <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 max-w-xl mx-auto w-full">
-            {question.options?.map((opt) => (
+          {question.type === "text" ? (
+            <div className="max-w-md mx-auto w-full space-y-4">
+              <input
+                type="text"
+                autoFocus
+                value={currentInput}
+                onChange={(e) => setCurrentInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleNext();
+                }}
+                placeholder={question.placeholder}
+                className="w-full text-center text-lg py-4 px-5 bg-card text-foreground border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
+              />
               <button
-                key={opt}
-                onClick={() => handleNext(opt)}
-                className="p-6 border border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-2xl text-lg font-semibold text-neutral-700 dark:text-neutral-300 hover:border-accent-500 dark:hover:border-accent-400 hover:bg-accent-50 dark:hover:bg-accent-500/10 hover:text-accent-700 dark:hover:text-accent-300 transition-all transform active:scale-95 text-left flex items-center justify-between group shadow-sm hover:shadow-md"
+                onClick={() => handleNext()}
+                disabled={!currentInput.trim()}
+                className="w-full h-12 bg-foreground text-background rounded-full font-medium text-sm hover:opacity-85 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>{opt}</span>
+                <span>Continue</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-            ))}
-          </div>
-        )}
-      </div>
-
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto w-full">
+              {question.options?.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => handleNext(opt)}
+                  className="p-4 sm:p-5 border border-border bg-card hover:border-foreground hover:bg-secondary/60 rounded-2xl text-sm sm:text-base font-medium text-foreground transition-all active:scale-[0.98] text-left flex items-center justify-between group cursor-pointer"
+                >
+                  <span>{opt}</span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
+                </button>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

@@ -13,6 +13,11 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    match /collections/{collectionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

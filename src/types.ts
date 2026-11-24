@@ -49,3 +49,10 @@ export interface RecipeFilters {
   mealType: string;
   maxCookingTime: number;
 }
+
+export interface RecipeCollection {
+  id: string;
+  name: string;
+  recipeIds: string[];
+  createdAt: string;
+}
