@@ -516,75 +516,152 @@ app.get("/api/search-recipe-images", async (req, res) => {
   const q = String(req.query.q || "").trim();
   const cuisine = String(req.query.cuisine || "").trim();
   if (!q) {
-    res.json({ photos: [] });
+    res.json({ photos: [], provider: "none" });
     return;
   }
 
-  const photos: { url: string; label: string; source: string }[] = [];
-  const seen = new Set<string>();
+  const cleaned =
+    q
+      .replace(/\([^)]*\)/g, " ")
+      .replace(
+        /\b(easy|quick|homemade|classic|best|authentic|simple|stovetop|instant pot|pressure cooker|air-fried|baked|multipurpose|style|sides)\b/gi,
+        " "
+      )
+      .replace(/[&/,-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() || q;
 
-  const badWords = [
-    "logo",
-    "icon",
-    "flag",
-    "map",
-    "diagram",
-    "portrait",
-    "treehugger",
-    "stock",
-    "livestock",
-    "farm",
-    "rooster",
-    "hen",
-    "bing.com",
-    "microsoft.com",
+  const blockedDomains = [
+    "shutterstock.com", "alamy.com", "gettyimages.com", "istockphoto.com",
+    "dreamstime.com", "123rf.com", "depositphotos.com", "vecteezy.com",
+    "freepik.com", "stock.adobe.com", "pinterest.com", "pinimg.com",
+    "youtube.com", "ytimg.com", "tiktok.com", "facebook.com", "instagram.com",
+    "amazon.com", "walmart.com", "treehugger.com",
+  ];
+  const editorialDomains = [
+    "teaforturmeric.com", "ministryofcurry.com", "recipetineats.com",
+    "seriouseats.com", "bonappetit.com", "nytimes.com", "halfbakedharvest.com",
+    "themediterraneandish.com", "feelgoodfoodie.net", "persianmama.com",
+    "unicornsinthekitchen.com", "indianhealthyrecipes.com", "cookwithmanali.com",
+    "simplyrecipes.com", "epicurious.com", "loveandlemons.com", "smittenkitchen.com",
+    "bbcgoodfood.com", "dishoom.com", "myheartbeets.com", "pipingpotcurry.com",
+    "thewoksoflife.com", "justonecookbook.com", "sallysbakingaddiction.com",
+    "preppykitchen.com", "kingarthurbaking.com", "foodandwine.com", "saveur.com",
   ];
 
+  const serperKey = process.env.SERPER_API_KEY;
+  const braveKey = process.env.BRAVE_SEARCH_API_KEY;
+
+  // 1. Primary: High-res editorial food-blog search via Serper.dev or Brave Search API
+  if (serperKey || braveKey) {
+    try {
+      const searchQuery =
+        cuisine && cuisine !== "All" && cuisine !== "Other" && !cleaned.toLowerCase().includes(cuisine.toLowerCase())
+          ? `${cleaned} ${cuisine} recipe food photography`
+          : `${cleaned} recipe food photography`;
+
+      const scored: { url: string; label: string; source: string; score: number }[] = [];
+
+      if (serperKey) {
+        const serperRes = await fetch("https://google.serper.dev/images", {
+          method: "POST",
+          headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ q: searchQuery, num: 20 }),
+        });
+        if (serperRes.ok) {
+          const data: any = await serperRes.json();
+          for (const item of data.images || []) {
+            const url: string = item.imageUrl || "";
+            const pageUrl: string = item.link || "";
+            const w = Number(item.imageWidth) || 0;
+            const h = Number(item.imageHeight) || 0;
+            const lower = url.toLowerCase();
+            if (!url.startsWith("http") || lower.endsWith(".svg") || lower.endsWith(".gif")) continue;
+            if (blockedDomains.some((d) => lower.includes(d) || pageUrl.toLowerCase().includes(d))) continue;
+            if (w && h && (w < 450 || h < 450 || w / h > 2.0 || w / h < 0.48)) continue;
+
+            let host = "Web";
+            try {
+              host = new URL(pageUrl || url).hostname.replace(/^www\./, "");
+            } catch {}
+            let score = editorialDomains.some((d) => host.includes(d)) ? 40 : 0;
+            if (w >= 900 && h >= 900) score += 15;
+            if (w && h && w / h >= 0.65 && w / h <= 1.05) score += 20;
+            scored.push({ url, label: item.title || cleaned, source: host, score });
+          }
+        }
+      } else if (braveKey) {
+        const braveRes = await fetch(
+          `https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(searchQuery)}&count=20&safesearch=strict`,
+          { headers: { Accept: "application/json", "X-Subscription-Token": braveKey } }
+        );
+        if (braveRes.ok) {
+          const data: any = await braveRes.json();
+          for (const item of data.results || []) {
+            const url: string = item?.properties?.url || item?.thumbnail?.src || "";
+            const pageUrl: string = item?.url || "";
+            const w = Number(item?.properties?.width) || 0;
+            const h = Number(item?.properties?.height) || 0;
+            const lower = url.toLowerCase();
+            if (!url.startsWith("http") || lower.endsWith(".svg") || lower.endsWith(".gif")) continue;
+            if (blockedDomains.some((d) => lower.includes(d) || pageUrl.toLowerCase().includes(d))) continue;
+            if (w && h && (w < 450 || h < 450 || w / h > 2.0 || w / h < 0.48)) continue;
+
+            let host = "Web";
+            try {
+              host = new URL(pageUrl || url).hostname.replace(/^www\./, "");
+            } catch {}
+            let score = editorialDomains.some((d) => host.includes(d)) ? 40 : 0;
+            if (w >= 900 && h >= 900) score += 15;
+            if (w && h && w / h >= 0.65 && w / h <= 1.05) score += 20;
+            scored.push({ url, label: item.title || cleaned, source: host, score });
+          }
+        }
+      }
+
+      const seen = new Set<string>();
+      const top = scored
+        .sort((a, b) => b.score - a.score)
+        .filter((p) => {
+          if (seen.has(p.url)) return false;
+          seen.add(p.url);
+          return true;
+        })
+        .slice(0, 6)
+        .map(({ url, label, source }) => ({ url, label, source }));
+
+      if (top.length > 0) {
+        res.json({ photos: top, provider: serperKey ? "serper" : "brave" });
+        return;
+      }
+    } catch (err) {
+      console.warn("Editorial image API error, falling back:", err);
+    }
+  }
+
+  // 2. Fallback when no SERPER_API_KEY / BRAVE_SEARCH_API_KEY is configured yet
+  const photos: { url: string; label: string; source: string }[] = [];
+  const seen = new Set<string>();
   const addPhoto = (url: string, label: string, source: string) => {
     if (!url || seen.has(url)) return;
     const lower = url.toLowerCase();
-    const labelLower = label.toLowerCase();
     if (lower.endsWith(".svg") || lower.includes(".svg/") || lower.endsWith(".pdf")) return;
-    if (badWords.some((w) => lower.includes(w) || labelLower.includes(w))) return;
     seen.add(url);
     photos.push({ url, label, source });
   };
 
-  const cleaned = q
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/\b(easy|quick|homemade|classic|best|authentic|simple|stovetop|instant pot|pressure cooker|air-fried|baked|multipurpose|style|sides)\b/gi, " ")
-    .replace(/[&/,-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim() || q;
-
   try {
-    const [commonsRes, wikiPageRes, bingRes] = await Promise.allSettled([
-      // 1. Wikimedia Commons exact dish search (very accurate for Desi, Persian, Middle Eastern & global dishes)
+    const [commonsRes, wikiPageRes] = await Promise.allSettled([
       fetch(
         `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(
-          `${cleaned} food`
+          cleaned
         )}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=800&format=json`
       ).then((r) => (r.ok ? r.json() : null)),
-
-      // 2. Wikipedia Page Images (curated hero photos of traditional dishes)
       fetch(
         `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
-          `${cleaned} dish OR food OR recipe`
+          `${cleaned} food OR dish`
         )}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json`
       ).then((r) => (r.ok ? r.json() : null)),
-
-      // 3. Bing Image Search fallback using quoted recipe query
-      fetch(
-        `https://www.bing.com/images/search?q=${encodeURIComponent(
-          `"${cleaned}" recipe plated${cuisine && cuisine !== "All" && cuisine !== "Other" ? ` ${cuisine}` : ""}`
-        )}&first=1&count=8`,
-        {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          },
-        }
-      ).then((r) => (r.ok ? r.text() : "")),
     ]);
 
     if (commonsRes.status === "fulfilled" && commonsRes.value?.query?.pages) {
@@ -607,19 +684,11 @@ app.get("/api/search-recipe-images", async (req, res) => {
         }
       }
     }
-
-    if (photos.length < 6 && bingRes.status === "fulfilled" && bingRes.value) {
-      const matches = bingRes.value.matchAll(/murl&quot;:&quot;(https?:\/\/[^&"]+)&quot;/g);
-      for (const m of matches) {
-        addPhoto(m[1], cleaned, "Web");
-        if (photos.length >= 6) break;
-      }
-    }
   } catch (err) {
-    console.warn("Image search error:", err);
+    console.warn("Fallback image search error:", err);
   }
 
-  res.json({ photos: photos.slice(0, 6) });
+  res.json({ photos: photos.slice(0, 6), provider: "wikimedia" });
 });
 
 // Configure Vite integration or static file serving

@@ -716,7 +716,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                                 ? "border-primary ring-2 ring-primary/30 scale-[0.98]"
                                 : "border-transparent hover:border-foreground/30"
                             }`}
-                            title={`Use photo: ${photo.label}`}
+                            title={`${photo.label}${photo.source ? ` (${photo.source})` : ""}`}
                           >
                             <img
                               src={photo.url}
@@ -727,6 +727,11 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                               }
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             />
+                            {photo.source && (
+                              <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent px-1.5 pb-1 pt-3 text-[9px] font-medium text-white/95 truncate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-left">
+                                {photo.source}
+                              </span>
+                            )}
                             {isSelected && (
                               <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-sm">
                                 <Check className="w-3 h-3" strokeWidth={3} />
