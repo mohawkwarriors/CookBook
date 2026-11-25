@@ -516,30 +516,48 @@ Provide ONLY the JSON array inside a \`\`\`json code block with no extra prose.`
 app.get("/api/search-recipe-images", async (req, res) => {
   const q = String(req.query.q || "").trim();
   const cuisine = String(req.query.cuisine || "").trim();
-  if (!q) {
-    res.json({ photos: [], provider: "none" });
-    return;
-  }
+  const fresh = req.query.fresh === "1";
 
   const serperKey = process.env.SERPER_API_KEY;
   const braveKey = process.env.BRAVE_SEARCH_API_KEY;
+  const configured = {
+    serper: Boolean(serperKey?.trim()),
+    brave: Boolean(braveKey?.trim()),
+  };
+
+  if (!q) {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ photos: [], provider: "none", configured });
+    return;
+  }
 
   // 1. Primary: High-res editorial food-blog search via Serper.dev or Brave Search API
-  if (serperKey || braveKey) {
+  if (configured.serper || configured.brave) {
     const result = await searchEditorialFoodImages({
       query: q,
       cuisine,
       serperKey,
       braveKey,
-      maxResults: 6,
+      maxResults: 10,
     });
-    if (result.photos.length > 0) {
+    res.setHeader(
+      "Cache-Control",
+      !fresh && result.photos.length > 0 ? "public, max-age=3600" : "no-store"
+    );
+    if (result.photos.length > 0 || result.error) {
       res.json(result);
       return;
     }
   }
 
   const cleaned = cleanDishQuery(q);
+  const badFallbackWords = [
+    "logo", "icon", "flag", "map", "diagram", "coat of arms", "blason", "portrait",
+    "building", "station", "caniparc", "park", "street", "road", "bridge", "church",
+    "cathedral", "statue", "monument", "sign", "dump", "hotel", "museum", "castle",
+    "house", "river", "city", "town", "village", "train", "airport", "school",
+    "cemetery", "stamp", "marka", "coin",
+  ];
 
   // 2. Fallback when no SERPER_API_KEY / BRAVE_SEARCH_API_KEY is configured yet
   const photos: { url: string; label: string; source: string }[] = [];
@@ -547,24 +565,39 @@ app.get("/api/search-recipe-images", async (req, res) => {
   const addPhoto = (url: string, label: string, source: string) => {
     if (!url || seen.has(url)) return;
     const lower = url.toLowerCase();
+    const labelLower = label.toLowerCase();
     if (lower.endsWith(".svg") || lower.includes(".svg/") || lower.endsWith(".pdf")) return;
+    if (badFallbackWords.some((w) => labelLower.includes(w) || lower.includes(w))) return;
     seen.add(url);
     photos.push({ url, label, source });
   };
 
   try {
-    const [commonsRes, wikiPageRes] = await Promise.allSettled([
-      fetch(
-        `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(
-          cleaned
-        )}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=800&format=json`
-      ).then((r) => (r.ok ? r.json() : null)),
+    const qualifiedQuery =
+      cuisine && cuisine !== "All" && cuisine !== "Other"
+        ? `${cleaned} ${cuisine} (food OR dish OR soup OR cuisine OR recipe)`
+        : `${cleaned} (food OR dish OR soup OR cuisine OR recipe)`;
+
+    const [wikiPageRes, commonsRes] = await Promise.allSettled([
       fetch(
         `https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
-          `${cleaned} food OR dish`
+          `${cleaned} food OR dish OR soup`
         )}&gsrlimit=6&prop=pageimages&piprop=thumbnail&pithumbsize=800&format=json`
       ).then((r) => (r.ok ? r.json() : null)),
+      fetch(
+        `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(
+          qualifiedQuery
+        )}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=800&format=json`
+      ).then((r) => (r.ok ? r.json() : null)),
     ]);
+
+    if (wikiPageRes.status === "fulfilled" && wikiPageRes.value?.query?.pages) {
+      for (const page of Object.values(wikiPageRes.value.query.pages) as any[]) {
+        if (page?.thumbnail?.source) {
+          addPhoto(page.thumbnail.source, page.title || cleaned, "Wikipedia");
+        }
+      }
+    }
 
     if (commonsRes.status === "fulfilled" && commonsRes.value?.query?.pages) {
       for (const page of Object.values(commonsRes.value.query.pages) as any[]) {
@@ -578,19 +611,12 @@ app.get("/api/search-recipe-images", async (req, res) => {
         }
       }
     }
-
-    if (wikiPageRes.status === "fulfilled" && wikiPageRes.value?.query?.pages) {
-      for (const page of Object.values(wikiPageRes.value.query.pages) as any[]) {
-        if (page?.thumbnail?.source) {
-          addPhoto(page.thumbnail.source, page.title || cleaned, "Wikipedia");
-        }
-      }
-    }
   } catch (err) {
     console.warn("Fallback image search error:", err);
   }
 
-  res.json({ photos: photos.slice(0, 6), provider: "wikimedia" });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ photos: photos.slice(0, 6), provider: "wikimedia", configured });
 });
 
 // Configure Vite integration or static file serving

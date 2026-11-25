@@ -19,7 +19,7 @@ import { Recipe, Ingredient, TopRatedRecipe } from "../types";
 import TopRatedSearch from "./TopRatedSearch";
 import RecipeIcon from "./RecipeIcon";
 import { getMealTypeButtonColor } from "../lib/utils";
-import { compressImageFile, searchStandInPhotos, StandInPhoto } from "../lib/imageSearch";
+import { compressImageFile, searchStandInPhotosDetailed, StandInPhoto } from "../lib/imageSearch";
 
 interface RecipeFormModalProps {
   onClose: () => void;
@@ -61,17 +61,26 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
   const [standInPhotos, setStandInPhotos] = useState<StandInPhoto[]>([]);
   const [isLoadingStandIns, setIsLoadingStandIns] = useState(false);
   const [standInQuery, setStandInQuery] = useState("");
+  const [standInDiagnostic, setStandInDiagnostic] = useState<string | null>(null);
   const [failedStandIns, setFailedStandIns] = useState<Set<string>>(new Set());
+  const [fallbackStandIns, setFallbackStandIns] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadStandInPhotos = async (queryText: string, cuisineText?: string) => {
+  const loadStandInPhotos = async (
+    queryText: string,
+    cuisineText?: string,
+    forceRefresh = false
+  ) => {
     const q = queryText.trim();
     if (!q) return;
     setIsLoadingStandIns(true);
     setFailedStandIns(new Set());
+    setFallbackStandIns(new Set());
+    setStandInDiagnostic(null);
     try {
-      const results = await searchStandInPhotos(q, cuisineText, 6);
-      setStandInPhotos(results);
+      const result = await searchStandInPhotosDetailed(q, cuisineText, 10, { forceRefresh });
+      setStandInPhotos(result.photos);
+      setStandInDiagnostic(result.diagnostic || null);
     } finally {
       setIsLoadingStandIns(false);
     }
@@ -99,6 +108,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       setNotes(editingRecipe.notes || "");
       setStandInQuery(editingRecipe.title || "");
       setStandInPhotos([]);
+      setStandInDiagnostic(null);
       setImageError(null);
       setActiveTab("manual");
 
@@ -120,6 +130,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
       setUrl("");
       setStandInQuery("");
       setStandInPhotos([]);
+      setStandInDiagnostic(null);
       setImageError(null);
       setActiveTab("search");
     }
@@ -672,7 +683,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          loadStandInPhotos(standInQuery || title, cuisine);
+                          loadStandInPhotos(standInQuery || title, cuisine, true);
                         }
                       }}
                       placeholder={title || "Search dish name..."}
@@ -680,7 +691,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                     />
                     <button
                       type="button"
-                      onClick={() => loadStandInPhotos(standInQuery || title, cuisine)}
+                      onClick={() => loadStandInPhotos(standInQuery || title, cuisine, true)}
                       disabled={isLoadingStandIns || !(standInQuery.trim() || title.trim())}
                       className="h-8 px-3 rounded-full border border-border bg-background hover:bg-secondary text-xs font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40"
                     >
@@ -694,6 +705,12 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   </div>
                 </div>
 
+                {standInDiagnostic && !isLoadingStandIns && (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                    {standInDiagnostic}
+                  </p>
+                )}
+
                 {isLoadingStandIns ? (
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -704,13 +721,18 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                   <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                     {standInPhotos
                       .filter((p) => !failedStandIns.has(p.url))
+                      .slice(0, 6)
                       .map((photo) => {
-                        const isSelected = imageUrl === photo.url;
+                        const effectiveUrl =
+                          fallbackStandIns.has(photo.url) && photo.fallbackUrl
+                            ? photo.fallbackUrl
+                            : photo.url;
+                        const isSelected = imageUrl === effectiveUrl || imageUrl === photo.url;
                         return (
                           <button
                             key={photo.url}
                             type="button"
-                            onClick={() => setImageUrl(isSelected ? "" : photo.url)}
+                            onClick={() => setImageUrl(isSelected ? "" : effectiveUrl)}
                             className={`group relative aspect-[4/5] rounded-lg overflow-hidden border-2 transition-all cursor-pointer ${
                               isSelected
                                 ? "border-primary ring-2 ring-primary/30 scale-[0.98]"
@@ -719,12 +741,16 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
                             title={`${photo.label}${photo.source ? ` (${photo.source})` : ""}`}
                           >
                             <img
-                              src={photo.url}
+                              src={effectiveUrl}
                               alt={photo.label}
                               referrerPolicy="no-referrer"
-                              onError={() =>
-                                setFailedStandIns((prev) => new Set(prev).add(photo.url))
-                              }
+                              onError={() => {
+                                if (photo.fallbackUrl && !fallbackStandIns.has(photo.url)) {
+                                  setFallbackStandIns((prev) => new Set(prev).add(photo.url));
+                                } else {
+                                  setFailedStandIns((prev) => new Set(prev).add(photo.url));
+                                }
+                              }}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                             />
                             {photo.source && (

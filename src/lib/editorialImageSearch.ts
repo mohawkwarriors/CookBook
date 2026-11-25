@@ -1,7 +1,27 @@
 export interface EditorialPhotoResult {
   url: string;
+  fallbackUrl?: string;
   label: string;
   source: string;
+}
+
+export interface EditorialSearchResponse {
+  photos: EditorialPhotoResult[];
+  provider: "serper" | "brave" | "none";
+  configured: {
+    serper: boolean;
+    brave: boolean;
+  };
+  error?: string;
+}
+
+interface RawCandidate {
+  url: string;
+  fallbackUrl?: string;
+  pageUrl: string;
+  title: string;
+  width?: number;
+  height?: number;
 }
 
 interface ScoredPhoto extends EditorialPhotoResult {
@@ -37,7 +57,6 @@ const BLOCKED_DOMAINS = [
   "imgur.com",
   "flickr.com",
   "cookpad.com",
-  "allrecipes.com",
   "blogspot.com",
   "wikimedia.org",
   "wikipedia.org",
@@ -63,8 +82,21 @@ const EDITORIAL_FOOD_DOMAINS = [
   "feelgoodfoodie.net",
   "persianmama.com",
   "unicornsinthekitchen.com",
+  "cookingwithayeh.com",
+  "afghancooks.com",
+  "thedeliciouscrescent.com",
+  "littlespicejar.com",
+  "fatimacooks.net",
+  "spicecravings.com",
   "indianhealthyrecipes.com",
   "cookwithmanali.com",
+  "hebbarskitchen.com",
+  "vegrecipesofindia.com",
+  "dassanasvegrecipes.com",
+  "swasthisrecipes.com",
+  "zaatarandzaytoun.com",
+  "tasteofbeirut.com",
+  "196flavors.com",
   "simplyrecipes.com",
   "epicurious.com",
   "loveandlemons.com",
@@ -102,6 +134,15 @@ const EDITORIAL_FOOD_DOMAINS = [
   "gimmesomeoven.com",
   "downshiftology.com",
   "onceuponachef.com",
+  "natashaskitchen.com",
+  "cafedelites.com",
+  "jocooks.com",
+  "aheadofthyme.com",
+  "damndelicious.net",
+  "wellplated.com",
+  "spendwithpennies.com",
+  "thespruceeats.com",
+  "foodnetwork.com",
   "delicious.com.au",
   "donnahay.com.au",
 ];
@@ -128,7 +169,13 @@ function getHostname(url: string): string {
   }
 }
 
-function isAllowedImage(url: string, pageUrl: string, width?: number, height?: number, minDim = 500): boolean {
+function isAllowedImage(
+  url: string,
+  pageUrl: string,
+  width?: number,
+  height?: number,
+  strict = true
+): boolean {
   if (!url || !url.startsWith("http")) return false;
   const lower = url.toLowerCase();
   const pageLower = pageUrl.toLowerCase();
@@ -141,10 +188,12 @@ function isAllowedImage(url: string, pageUrl: string, width?: number, height?: n
     lower.includes("logo") ||
     lower.includes("avatar") ||
     lower.includes("placeholder") ||
-    lower.includes("collage") ||
-    lower.includes("pin-") ||
-    lower.includes("step-")
+    lower.includes("collage")
   ) {
+    return false;
+  }
+
+  if (strict && (lower.includes("pin-") || lower.includes("step-"))) {
     return false;
   }
 
@@ -158,11 +207,14 @@ function isAllowedImage(url: string, pageUrl: string, width?: number, height?: n
     return false;
   }
 
+  const minDim = strict ? 500 : 300;
+  const minRatio = strict ? 0.52 : 0.44;
+  const maxRatio = strict ? 1.85 : 2.15;
+
   if (width && height) {
     if (width < minDim || height < minDim) return false;
     const ratio = width / height;
-    // Reject ultra-wide banners or super-tall text-heavy Pinterest pins
-    if (ratio > 1.8 || ratio < 0.52) return false;
+    if (ratio > maxRatio || ratio < minRatio) return false;
   }
 
   return true;
@@ -172,6 +224,7 @@ function scoreImage(url: string, pageUrl: string, title: string, width?: number,
   let score = 0;
   const host = getHostname(pageUrl || url);
   const lowerTitle = title.toLowerCase();
+  const lowerUrl = url.toLowerCase();
 
   if (EDITORIAL_FOOD_DOMAINS.some((d) => host.includes(d))) {
     score += 55;
@@ -179,6 +232,7 @@ function scoreImage(url: string, pageUrl: string, title: string, width?: number,
   if (width && height) {
     if (width >= 1000 && height >= 1000) score += 20;
     else if (width >= 750 && height >= 750) score += 12;
+    else if (width >= 500 && height >= 500) score += 6;
 
     // 4:5 portrait framing matches Cookbook's cover cards best & signals DSLR food blogs
     const ratio = width / height;
@@ -186,17 +240,58 @@ function scoreImage(url: string, pageUrl: string, title: string, width?: number,
     else if (ratio > 0.92 && ratio <= 1.1) score += 16;
     else if (ratio > 1.1 && ratio <= 1.45) score += 8;
   }
-  if (lowerTitle.includes("step by step") || lowerTitle.includes("how to make") || lowerTitle.includes("collage")) {
-    score -= 10;
+  if (
+    lowerTitle.includes("step by step") ||
+    lowerTitle.includes("how to make") ||
+    lowerTitle.includes("collage") ||
+    lowerUrl.includes("pin-") ||
+    lowerUrl.includes("step-")
+  ) {
+    score -= 12;
   }
-  const lowerUrl = url.toLowerCase();
   if (lowerUrl.includes(".jpg") || lowerUrl.includes(".jpeg") || lowerUrl.includes(".webp")) {
     score += 5;
   }
   return score;
 }
 
-async function searchWithSerper(query: string, apiKey: string): Promise<ScoredPhoto[]> {
+function filterAndScoreCandidates(raw: RawCandidate[], maxResults: number): ScoredPhoto[] {
+  const toScored = (item: RawCandidate, bonus = 0): ScoredPhoto => {
+    const domain = getHostname(item.pageUrl || item.url);
+    return {
+      url: item.url,
+      fallbackUrl: item.fallbackUrl && item.fallbackUrl !== item.url ? item.fallbackUrl : undefined,
+      label: item.title,
+      source: domain || "Web",
+      score: scoreImage(item.url, item.pageUrl, item.title, item.width, item.height) + bonus,
+    };
+  };
+
+  const strictMatches = raw
+    .filter((item) => isAllowedImage(item.url, item.pageUrl, item.width, item.height, true))
+    .map((item) => toScored(item, 15));
+
+  if (strictMatches.length >= maxResults) {
+    return strictMatches;
+  }
+
+  const seenStrict = new Set(strictMatches.map((m) => m.url));
+  const relaxedMatches = raw
+    .filter(
+      (item) =>
+        !seenStrict.has(item.url) &&
+        isAllowedImage(item.url, item.pageUrl, item.width, item.height, false)
+    )
+    .map((item) => toScored(item, 0));
+
+  return [...strictMatches, ...relaxedMatches];
+}
+
+async function fetchSerperRaw(
+  searchQuery: string,
+  apiKey: string,
+  fallbackTitle: string
+): Promise<{ items: RawCandidate[]; error?: string }> {
   const res = await fetch("https://google.serper.dev/images", {
     method: "POST",
     headers: {
@@ -204,39 +299,47 @@ async function searchWithSerper(query: string, apiKey: string): Promise<ScoredPh
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      q: `${query} recipe food photography`,
-      num: 25,
+      q: searchQuery,
+      num: 30,
     }),
   });
 
-  if (!res.ok) return [];
+  if (!res.ok) {
+    let detail = "";
+    try {
+      detail = (await res.text()).slice(0, 120);
+    } catch {
+      // ignore body read errors
+    }
+    return { items: [], error: `Serper HTTP ${res.status}${detail ? `: ${detail}` : ""}` };
+  }
+
   const data = (await res.json()) as { images?: any[] };
-  const results: ScoredPhoto[] = [];
+  const items: RawCandidate[] = [];
 
   for (const item of data.images || []) {
     const url = item.imageUrl || "";
-    const pageUrl = item.link || "";
-    const w = Number(item.imageWidth) || undefined;
-    const h = Number(item.imageHeight) || undefined;
-    const title = item.title || query;
-
-    if (!isAllowedImage(url, pageUrl, w, h, 500)) continue;
-
-    const domain = getHostname(pageUrl || url);
-    results.push({
+    if (!url) continue;
+    items.push({
       url,
-      label: title,
-      source: domain || "Web",
-      score: scoreImage(url, pageUrl, title, w, h),
+      fallbackUrl: item.thumbnailUrl || undefined,
+      pageUrl: item.link || "",
+      width: Number(item.imageWidth) || undefined,
+      height: Number(item.imageHeight) || undefined,
+      title: item.title || fallbackTitle,
     });
   }
 
-  return results;
+  return { items };
 }
 
-async function searchWithBrave(query: string, apiKey: string): Promise<ScoredPhoto[]> {
+async function fetchBraveRaw(
+  searchQuery: string,
+  apiKey: string,
+  fallbackTitle: string
+): Promise<{ items: RawCandidate[]; error?: string }> {
   const params = new URLSearchParams({
-    q: `${query} recipe food photography`,
+    q: searchQuery,
     count: "25",
     safesearch: "strict",
   });
@@ -248,29 +351,27 @@ async function searchWithBrave(query: string, apiKey: string): Promise<ScoredPho
     },
   });
 
-  if (!res.ok) return [];
+  if (!res.ok) {
+    return { items: [], error: `Brave HTTP ${res.status}` };
+  }
+
   const data = (await res.json()) as { results?: any[] };
-  const results: ScoredPhoto[] = [];
+  const items: RawCandidate[] = [];
 
   for (const item of data.results || []) {
     const url = item?.properties?.url || item?.thumbnail?.src || "";
-    const pageUrl = item?.url || "";
-    const w = Number(item?.properties?.width) || undefined;
-    const h = Number(item?.properties?.height) || undefined;
-    const title = item.title || query;
-
-    if (!isAllowedImage(url, pageUrl, w, h, 500)) continue;
-
-    const domain = getHostname(pageUrl || url);
-    results.push({
+    if (!url) continue;
+    items.push({
       url,
-      label: title,
-      source: domain || "Web",
-      score: scoreImage(url, pageUrl, title, w, h),
+      fallbackUrl: item?.thumbnail?.src || undefined,
+      pageUrl: item?.url || "",
+      width: Number(item?.properties?.width) || undefined,
+      height: Number(item?.properties?.height) || undefined,
+      title: item.title || fallbackTitle,
     });
   }
 
-  return results;
+  return { items };
 }
 
 export async function searchEditorialFoodImages(options: {
@@ -279,13 +380,19 @@ export async function searchEditorialFoodImages(options: {
   serperKey?: string;
   braveKey?: string;
   maxResults?: number;
-}): Promise<{ photos: EditorialPhotoResult[]; provider: "serper" | "brave" | "none" }> {
+}): Promise<EditorialSearchResponse> {
   const rawQuery = options.query.trim();
   const cuisine = (options.cuisine || "").trim();
-  const maxResults = options.maxResults ?? 6;
+  const maxResults = options.maxResults ?? 10;
+  const serperKey = (options.serperKey || "").trim();
+  const braveKey = (options.braveKey || "").trim();
+  const configured = {
+    serper: Boolean(serperKey),
+    brave: Boolean(braveKey),
+  };
 
   if (!rawQuery) {
-    return { photos: [], provider: "none" };
+    return { photos: [], provider: "none", configured };
   }
 
   const cleaned = cleanDishQuery(rawQuery);
@@ -294,31 +401,44 @@ export async function searchEditorialFoodImages(options: {
       ? `${cleaned} ${cuisine}`
       : cleaned;
 
-  let candidates: ScoredPhoto[] = [];
+  let rawCandidates: RawCandidate[] = [];
   let provider: "serper" | "brave" | "none" = "none";
+  let error: string | undefined;
 
   try {
-    if (options.serperKey) {
+    if (serperKey) {
       provider = "serper";
-      candidates = await searchWithSerper(queryWithCuisine, options.serperKey);
-      if (candidates.length < maxResults && queryWithCuisine !== cleaned) {
-        const extra = await searchWithSerper(cleaned, options.serperKey);
-        candidates = [...candidates, ...extra];
+      const primary = await fetchSerperRaw(`${queryWithCuisine} recipe`, serperKey, cleaned);
+      rawCandidates = primary.items;
+      if (primary.error) error = primary.error;
+
+      let scoredSoFar = filterAndScoreCandidates(rawCandidates, maxResults);
+      if (!error && scoredSoFar.length < maxResults && queryWithCuisine !== cleaned) {
+        const secondary = await fetchSerperRaw(`${cleaned} food recipe`, serperKey, cleaned);
+        rawCandidates = [...rawCandidates, ...secondary.items];
+        if (secondary.error) error = secondary.error;
       }
-    } else if (options.braveKey) {
+    } else if (braveKey) {
       provider = "brave";
-      candidates = await searchWithBrave(queryWithCuisine, options.braveKey);
-      if (candidates.length < maxResults && queryWithCuisine !== cleaned) {
-        const extra = await searchWithBrave(cleaned, options.braveKey);
-        candidates = [...candidates, ...extra];
+      const primary = await fetchBraveRaw(`${queryWithCuisine} recipe`, braveKey, cleaned);
+      rawCandidates = primary.items;
+      if (primary.error) error = primary.error;
+
+      let scoredSoFar = filterAndScoreCandidates(rawCandidates, maxResults);
+      if (!error && scoredSoFar.length < maxResults && queryWithCuisine !== cleaned) {
+        const secondary = await fetchBraveRaw(`${cleaned} food recipe`, braveKey, cleaned);
+        rawCandidates = [...rawCandidates, ...secondary.items];
+        if (secondary.error) error = secondary.error;
       }
     }
-  } catch (err) {
+  } catch (err: any) {
+    error = err?.message || "Editorial image search request failed";
     console.error("Editorial image search error:", err);
   }
 
+  const scored = filterAndScoreCandidates(rawCandidates, maxResults);
   const seen = new Set<string>();
-  const photos = candidates
+  const photos: EditorialPhotoResult[] = scored
     .sort((a, b) => b.score - a.score)
     .filter((item) => {
       if (seen.has(item.url)) return false;
@@ -326,7 +446,11 @@ export async function searchEditorialFoodImages(options: {
       return true;
     })
     .slice(0, maxResults)
-    .map(({ url, label, source }) => ({ url, label, source }));
+    .map(({ url, fallbackUrl, label, source }) =>
+      fallbackUrl ? { url, fallbackUrl, label, source } : { url, label, source }
+    );
 
-  return { photos, provider };
+  return error
+    ? { photos, provider, configured, error }
+    : { photos, provider, configured };
 }
