@@ -773,7 +773,7 @@ export default function App() {
       </div>
 
       {/* Sidebar Nav Groups */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-6">
         {/* Admin Kitchen Navigation */}
         {isAdmin && (
           <nav className="space-y-1">
@@ -1027,7 +1027,7 @@ export default function App() {
     <div className="min-h-svh w-full flex bg-background text-foreground font-sans transition-colors duration-200">
       {/* Desktop Collapsible Sidebar (Cook Well App Shell) */}
       <aside
-        className={`hidden md:block shrink-0 border-r border-sidebar-border transition-[width] duration-200 ease-out overflow-hidden sticky top-0 h-svh ${
+        className={`hidden md:block shrink-0 self-start border-r border-sidebar-border transition-[width] duration-200 ease-out overflow-hidden sticky top-0 h-dvh ${
           sidebarOpen ? "w-64" : "w-0 border-r-0"
         }`}
       >
