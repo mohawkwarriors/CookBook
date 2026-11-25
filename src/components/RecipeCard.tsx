@@ -158,11 +158,14 @@ export default function RecipeCard({
       </div>
 
       {/* Borderless Editorial Text + Food Category Color Tag */}
-      <div className="flex flex-col gap-1.5 pt-2.5 px-0.5">
-        <h3 className="font-serif text-[18px] sm:text-[19px] font-semibold text-foreground leading-[1.2] tracking-[-0.01em] line-clamp-2 group-hover:text-primary-dark transition-colors">
+      <div className="flex flex-col gap-1.5 pt-2.5 px-0.5 min-w-0">
+        <h3
+          title={recipe.title}
+          className="font-serif text-[18px] sm:text-[19px] font-semibold text-foreground leading-[1.25] tracking-[-0.01em] truncate group-hover:text-primary-dark transition-colors"
+        >
           {recipe.title}
         </h3>
-        <div className="flex items-center flex-wrap gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center flex-nowrap gap-1.5 text-xs text-muted-foreground min-w-0">
           {recipe.mealType && (
             <span
               className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full shrink-0 ${getMealTypeColor(
