@@ -137,7 +137,7 @@ export default function App() {
       if (isDarkMode) {
         document.documentElement.classList.add("dark");
         localStorage.setItem("cookbook_theme", "dark");
-        if (metaTheme) metaTheme.setAttribute("content", "#17120F");
+        if (metaTheme) metaTheme.setAttribute("content", "#2B2623");
       } else {
         document.documentElement.classList.remove("dark");
         localStorage.setItem("cookbook_theme", "light");
