@@ -131,7 +131,7 @@ export default function RecipeCard({
                 ? "bg-foreground text-background shadow-sm opacity-100"
                 : hasImage
                 ? "bg-black/45 text-white hover:bg-black/70 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
-                : "bg-background/85 text-foreground/70 hover:text-foreground border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)] opacity-90 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+                : "bg-background/85 dark:bg-black/45 text-foreground/75 dark:text-[#F7F1E8]/85 hover:text-foreground dark:hover:text-[#F7F1E8] dark:hover:bg-black/65 border border-border/60 dark:border-white/12 shadow-[0_1px_2px_rgba(0,0,0,0.04)] opacity-90 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
             }`}
             title={isBookmarked ? "Saved in collection" : "Save to collection"}
             aria-label={isBookmarked ? "Manage collections for this recipe" : "Save to collection"}
@@ -148,7 +148,7 @@ export default function RecipeCard({
             className={`absolute bottom-2.5 left-2.5 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums backdrop-blur-md ${
               hasImage
                 ? "bg-black/55 text-white"
-                : "bg-background/85 text-foreground border border-border/60 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                : "bg-background/85 dark:bg-black/45 text-foreground dark:text-[#F7F1E8] border border-border/60 dark:border-white/12 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
             }`}
           >
             <Clock className="w-3 h-3 opacity-80" />

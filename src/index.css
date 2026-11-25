@@ -163,17 +163,16 @@ body {
   scrollbar-width: none;
 }
 
-/* Bespoke cotton-paper weave texture for photo-less recipe book plates */
-.editorial-cover-grain {
-  background-image:
-    radial-gradient(rgba(74, 52, 34, 0.055) 1px, transparent 0),
-    linear-gradient(135deg, rgba(255, 253, 249, 0.35) 0%, rgba(168, 124, 72, 0.05) 100%);
-  background-size: 14px 14px, 100% 100%;
+/* Clean modern gradient surfaces for photo-less recipe covers */
+.recipe-cover-surface {
+  background: var(--ri-light-base);
+  color: var(--ri-light-icon);
 }
 
-.dark .editorial-cover-grain {
-  background-image:
-    radial-gradient(rgba(245, 232, 214, 0.06) 1px, transparent 0),
-    linear-gradient(135deg, rgba(255, 240, 215, 0.04) 0%, rgba(0, 0, 0, 0.16) 100%);
-  background-size: 14px 14px, 100% 100%;
+.dark .recipe-cover-surface {
+  background:
+    radial-gradient(circle at 30% 20%, var(--ri-dark-glow), transparent 60%),
+    linear-gradient(160deg, var(--ri-dark-from) 0%, var(--ri-dark-to) 100%);
+  color: var(--ri-dark-icon);
 }
+

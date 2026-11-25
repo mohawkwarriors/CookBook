@@ -75,49 +75,84 @@ const iconMapping: { keywords: string[]; Icon: React.ElementType }[] = [
   { keywords: ['chef', 'cook', 'recipe', 'meal', 'dinner', 'lunch', 'breakfast'], Icon: Utensils }
 ];
 
-// Rich heritage spice-inspired bookplate palettes (Dishoom / Zareen's / Amrikan)
-const EDITORIAL_SURFACES = [
+// Modern spice-inspired gradient palettes (Option E aurora in light mode, Option A lighter gradient in dark mode)
+interface SurfacePalette {
+  lightBase: string;
+  lightOrb1: string;
+  lightOrb2: string;
+  lightIcon: string;
+  darkFrom: string;
+  darkTo: string;
+  darkGlow: string;
+  darkIcon: string;
+}
+
+const MODERN_SURFACES: SurfacePalette[] = [
   // Burnished Saffron & Turmeric
   {
-    bg: 'bg-[#F6E9D2] dark:bg-[#271F14]',
-    fg: 'text-[#8C5216] dark:text-[#E5B06B]',
-    frame: 'border-[#DFC49B]/80 dark:border-[#E5B06B]/20',
-    medallion: 'bg-[#FFFBF2]/75 dark:bg-[#1A140D]/60 border-[#DFC49B] dark:border-[#E5B06B]/25',
+    lightBase: '#F0DFC2',
+    lightOrb1: 'rgba(200, 128, 36, 0.22)',
+    lightOrb2: 'rgba(176, 86, 114, 0.12)',
+    lightIcon: '#472708',
+    darkFrom: '#332718',
+    darkTo: '#1F170E',
+    darkGlow: 'rgba(238, 180, 92, 0.30)',
+    darkIcon: '#FCF4E6',
   },
   // Kashmiri Terracotta & Clay
   {
-    bg: 'bg-[#F3E2D8] dark:bg-[#2A1A16]',
-    fg: 'text-[#963F2B] dark:text-[#E19885]',
-    frame: 'border-[#DFBCB0]/80 dark:border-[#E19885]/20',
-    medallion: 'bg-[#FFF9F6]/75 dark:bg-[#1C110E]/60 border-[#DFBCB0] dark:border-[#E19885]/25',
+    lightBase: '#EED7CB',
+    lightOrb1: 'rgba(186, 78, 52, 0.20)',
+    lightOrb2: 'rgba(208, 134, 48, 0.16)',
+    lightIcon: '#4A1D12',
+    darkFrom: '#36201B',
+    darkTo: '#211310',
+    darkGlow: 'rgba(228, 128, 98, 0.30)',
+    darkIcon: '#FCEEE9',
   },
   // Cardamom & Pistachio Leaf
   {
-    bg: 'bg-[#E5EEE4] dark:bg-[#17231B]',
-    fg: 'text-[#355C42] dark:text-[#96C7A4]',
-    frame: 'border-[#C1D5BF]/80 dark:border-[#96C7A4]/20',
-    medallion: 'bg-[#FAFDF9]/75 dark:bg-[#0F1812]/60 border-[#C1D5BF] dark:border-[#96C7A4]/25',
+    lightBase: '#DCE9DB',
+    lightOrb1: 'rgba(68, 140, 92, 0.22)',
+    lightOrb2: 'rgba(204, 142, 62, 0.14)',
+    lightIcon: '#1B3424',
+    darkFrom: '#1E3026',
+    darkTo: '#131D17',
+    darkGlow: 'rgba(118, 194, 146, 0.30)',
+    darkIcon: '#E5F3EA',
   },
   // Jaipur Peacock Indigo
   {
-    bg: 'bg-[#E3EBF0] dark:bg-[#151F26]',
-    fg: 'text-[#2E5066] dark:text-[#95BDD6]',
-    frame: 'border-[#BFD1DC]/80 dark:border-[#95BDD6]/20',
-    medallion: 'bg-[#F8FBFD]/75 dark:bg-[#0E151A]/60 border-[#BFD1DC] dark:border-[#95BDD6]/25',
+    lightBase: '#D8E4EC',
+    lightOrb1: 'rgba(56, 116, 152, 0.22)',
+    lightOrb2: 'rgba(92, 150, 142, 0.14)',
+    lightIcon: '#183040',
+    darkFrom: '#1B2933',
+    darkTo: '#111A21',
+    darkGlow: 'rgba(114, 178, 214, 0.30)',
+    darkIcon: '#E4F0F7',
   },
   // Pomegranate & Rosewater
   {
-    bg: 'bg-[#F2E3E8] dark:bg-[#27181E]',
-    fg: 'text-[#853C56] dark:text-[#DDA0B6]',
-    frame: 'border-[#DEC0CA]/80 dark:border-[#DDA0B6]/20',
-    medallion: 'bg-[#FFF9FB]/75 dark:bg-[#190F13]/60 border-[#DEC0CA] dark:border-[#DDA0B6]/25',
+    lightBase: '#EEDAE2',
+    lightOrb1: 'rgba(164, 68, 102, 0.20)',
+    lightOrb2: 'rgba(206, 132, 86, 0.14)',
+    lightIcon: '#4A1C2E',
+    darkFrom: '#321F27',
+    darkTo: '#1E1217',
+    darkGlow: 'rgba(222, 132, 166, 0.30)',
+    darkIcon: '#FAEBF0',
   },
   // Toasted Clove & Sandstone
   {
-    bg: 'bg-[#EFE6D8] dark:bg-[#241D16]',
-    fg: 'text-[#6A4E34] dark:text-[#D1B495]',
-    frame: 'border-[#D8C6AD]/80 dark:border-[#D1B495]/20',
-    medallion: 'bg-[#FCF9F3]/75 dark:bg-[#18130E]/60 border-[#D8C6AD] dark:border-[#D1B495]/25',
+    lightBase: '#E8DEC9',
+    lightOrb1: 'rgba(146, 104, 64, 0.22)',
+    lightOrb2: 'rgba(196, 144, 72, 0.14)',
+    lightIcon: '#3B2918',
+    darkFrom: '#2F251D',
+    darkTo: '#1D1712',
+    darkGlow: 'rgba(214, 172, 124, 0.28)',
+    darkIcon: '#F5ECE2',
   },
 ];
 
@@ -146,42 +181,65 @@ export default function RecipeIcon({ recipe, className = '', variant = 'cover' }
     }
   }
 
-  // Hash by title + cuisine so neighboring recipes get a lively, varied bookplate palette
-  const surface = EDITORIAL_SURFACES[hashString(`${recipe.title}-${recipe.cuisine || ''}`) % EDITORIAL_SURFACES.length];
+  // Hash by title + cuisine so neighboring recipes get a lively, varied gradient palette
+  const surface = MODERN_SURFACES[hashString(`${recipe.title}-${recipe.cuisine || ''}`) % MODERN_SURFACES.length];
+
+  const surfaceVars = {
+    '--ri-light-base': surface.lightBase,
+    '--ri-light-icon': surface.lightIcon,
+    '--ri-dark-from': surface.darkFrom,
+    '--ri-dark-to': surface.darkTo,
+    '--ri-dark-glow': surface.darkGlow,
+    '--ri-dark-icon': surface.darkIcon,
+  } as React.CSSProperties;
 
   if (variant === 'compact') {
     return (
-      <div className={`flex items-center justify-center ${surface.bg} ${surface.fg} ${className}`}>
-        <Icon className="w-[46%] h-[46%]" strokeWidth={1.6} />
+      <div
+        style={surfaceVars}
+        className={`relative flex items-center justify-center overflow-hidden recipe-cover-surface ${className}`}
+      >
+        {/* Light-mode soft aurora orbs */}
+        <div
+          className="pointer-events-none dark:hidden absolute -top-[28%] -left-[24%] w-[85%] h-[85%] rounded-full blur-md"
+          style={{ background: surface.lightOrb1 }}
+        />
+        <div
+          className="pointer-events-none dark:hidden absolute -bottom-[28%] -right-[24%] w-[85%] h-[85%] rounded-full blur-md"
+          style={{ background: surface.lightOrb2 }}
+        />
+        <Icon className="relative z-10 w-[42%] h-[42%] opacity-85" strokeWidth={1.5} />
       </div>
     );
   }
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center overflow-hidden editorial-cover-grain ${surface.bg} ${surface.fg} ${className}`}
+      style={surfaceVars}
+      className={`relative flex items-center justify-center overflow-hidden recipe-cover-surface ${className}`}
     >
-      {/* Bespoke hardcover inner inset rule */}
-      <div className={`pointer-events-none absolute inset-2.5 rounded-lg border ${surface.frame}`} />
+      {/* Light-mode smooth aurora orbs & subtle depth glaze (Option E light mode) */}
+      <div
+        className="pointer-events-none dark:hidden absolute -top-[18%] -left-[16%] w-[78%] h-[68%] rounded-full blur-3xl"
+        style={{ background: surface.lightOrb1 }}
+      />
+      <div
+        className="pointer-events-none dark:hidden absolute -bottom-[20%] -right-[16%] w-[78%] h-[68%] rounded-full blur-3xl"
+        style={{ background: surface.lightOrb2 }}
+      />
+      <div
+        className="pointer-events-none dark:hidden absolute inset-0"
+        style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.16) 100%)',
+        }}
+      />
 
-      {/* Subtle editorial top-left cuisine inscription */}
-      {recipe.cuisine && (
-        <span className="absolute top-4 left-4 text-[10px] font-semibold uppercase tracking-[0.16em] opacity-75 select-none">
-          {recipe.cuisine}
-        </span>
-      )}
-
-      {/* Centered bookplate medallion */}
-      <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full border ${surface.medallion} backdrop-blur-[2px] flex items-center justify-center shadow-[0_2px_10px_rgba(35,26,20,0.06)]`}>
-        <Icon className="w-7 h-7 sm:w-9 sm:h-9" strokeWidth={1.35} />
-      </div>
-
-      {/* Tiny decorative flourish beneath medallion */}
-      <div className="mt-3 flex items-center gap-1.5 opacity-45">
-        <span className="w-3 h-px bg-current" />
-        <span className="w-1 h-1 rounded-full bg-current" />
-        <span className="w-3 h-px bg-current" />
-      </div>
+      {/* Clean floating icon */}
+      <Icon
+        className="relative z-10 w-[30%] h-[30%] min-w-[54px] min-h-[54px] max-w-[92px] max-h-[92px] opacity-85"
+        strokeWidth={1.3}
+      />
     </div>
   );
 }
+
