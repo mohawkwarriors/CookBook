@@ -360,6 +360,36 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
     }
   };
 
+  const renderActionButtons = (submitButtonId: string) => (
+    <>
+      <button
+        type="button"
+        onClick={onClose}
+        className="h-11 px-5 rounded-full border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+      >
+        Cancel
+      </button>
+      <button
+        id={submitButtonId}
+        type="submit"
+        disabled={isSaving}
+        className="h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-85 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+      >
+        {isSaving ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>Saving...</span>
+          </>
+        ) : (
+          <>
+            <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
+            <span>{editingRecipe ? "Save Changes" : "Save Recipe"}</span>
+          </>
+        )}
+      </button>
+    </>
+  );
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 pb-12">
       {/* Mode Switcher */}
@@ -479,6 +509,20 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             onSubmit={handleSubmit}
             className="space-y-8 max-w-3xl"
           >
+            {/* Top Save Bar (Edit Mode) */}
+            {editingRecipe && (
+              <div className="space-y-3 pb-4 border-b border-border">
+                <div className="flex items-center justify-end gap-3">
+                  {renderActionButtons("submit-form-btn-top")}
+                </div>
+                {formError && (
+                  <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
+                    {formError}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Title, Description & Cover Image URL */}
             <div className="space-y-4">
               <div>
@@ -975,31 +1019,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
 
             {/* Footer Save Bar */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-11 px-5 rounded-full border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                id="submit-form-btn"
-                type="submit"
-                disabled={isSaving}
-                className="h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-85 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
-                    <span>{editingRecipe ? "Save Changes" : "Save Recipe"}</span>
-                  </>
-                )}
-              </button>
+              {renderActionButtons("submit-form-btn")}
             </div>
           </motion.form>
         )}
