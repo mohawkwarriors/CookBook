@@ -208,7 +208,7 @@ export default function RecipeIcon({ recipe, className = '', variant = 'cover' }
           className="pointer-events-none dark:hidden absolute -bottom-[28%] -right-[24%] w-[85%] h-[85%] rounded-full blur-md"
           style={{ background: surface.lightOrb2 }}
         />
-        <Icon className="relative z-10 w-[42%] h-[42%] opacity-85" strokeWidth={1.5} />
+        <Icon className="relative z-10 w-[34%] h-[34%] opacity-85" strokeWidth={1.6} />
       </div>
     );
   }
@@ -236,8 +236,8 @@ export default function RecipeIcon({ recipe, className = '', variant = 'cover' }
 
       {/* Clean floating icon */}
       <Icon
-        className="relative z-10 w-[30%] h-[30%] min-w-[54px] min-h-[54px] max-w-[92px] max-h-[92px] opacity-85"
-        strokeWidth={1.3}
+        className="relative z-10 w-[24%] h-[24%] min-w-[44px] min-h-[44px] max-w-[74px] max-h-[74px] opacity-85"
+        strokeWidth={1.35}
       />
     </div>
   );

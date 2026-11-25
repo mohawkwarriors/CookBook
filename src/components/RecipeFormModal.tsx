@@ -26,6 +26,8 @@ interface RecipeFormModalProps {
   onSave: (recipe: Omit<Recipe, "id" | "createdAt">) => Promise<void>;
   onBackgroundSave?: (recipe: Omit<Recipe, "id" | "createdAt">) => Promise<void>;
   editingRecipe?: Recipe | null;
+  formId?: string;
+  onSavingChange?: (isSaving: boolean) => void;
 }
 
 const CUISINES = [
@@ -35,7 +37,14 @@ const CUISINES = [
 
 const MEAL_TYPES = ["All", "Starter", "Main", "Side", "Drink", "Dessert", "Snack"] as const;
 
-export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, editingRecipe }: RecipeFormModalProps) {
+export default function RecipeFormModal({
+  onClose,
+  onSave,
+  onBackgroundSave,
+  editingRecipe,
+  formId,
+  onSavingChange,
+}: RecipeFormModalProps) {
   const [activeTab, setActiveTab] = useState<"search" | "scraper" | "manual">("search");
   const [url, setUrl] = useState("");
   const [isScraping, setIsScraping] = useState(false);
@@ -360,6 +369,13 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
     }
   };
 
+  useEffect(() => {
+    onSavingChange?.(isSaving);
+    return () => {
+      onSavingChange?.(false);
+    };
+  }, [isSaving, onSavingChange]);
+
   const renderActionButtons = (submitButtonId: string) => (
     <>
       <button
@@ -501,6 +517,7 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
           </motion.div>
         ) : (
           <motion.form
+            id={formId}
             key="tab-manual-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -509,17 +526,9 @@ export default function RecipeFormModal({ onClose, onSave, onBackgroundSave, edi
             onSubmit={handleSubmit}
             className="space-y-8 max-w-3xl"
           >
-            {/* Top Save Bar (Edit Mode) */}
-            {editingRecipe && (
-              <div className="space-y-3 pb-4 border-b border-border">
-                <div className="flex items-center justify-end gap-3">
-                  {renderActionButtons("submit-form-btn-top")}
-                </div>
-                {formError && (
-                  <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
-                    {formError}
-                  </div>
-                )}
+            {editingRecipe && formError && (
+              <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
+                {formError}
               </div>
             )}
 

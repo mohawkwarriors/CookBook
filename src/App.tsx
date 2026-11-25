@@ -41,10 +41,11 @@ import {
   LayoutGrid,
   List,
   Lock,
-  Database,
   ArrowUpDown,
   Bookmark,
   Trash2,
+  Check,
+  Loader2,
 } from "lucide-react";
 
 const INITIAL_FILTERS: RecipeFilters = {
@@ -152,6 +153,7 @@ export default function App() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [activeRecipe, setActiveRecipe] = useState<Recipe | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const [isSavingRecipe, setIsSavingRecipe] = useState(false);
   const returnTargetRef = useRef<{ scrollY: number; recipeId?: string } | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
@@ -989,22 +991,7 @@ export default function App() {
           </span>
         </button>
 
-        {isAdmin ? (
-          <button
-            type="button"
-            onClick={() => {
-              setIsAdminPanelOpen(true);
-              setMobileMenuOpen(false);
-            }}
-            className="w-full flex items-center justify-between h-9 px-2.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <Database className="w-3.5 h-3.5 text-primary-dark" />
-              <span>Data &amp; Backup</span>
-            </span>
-            <span className="font-mono text-[10px] opacity-60">v{APP_VERSION}</span>
-          </button>
-        ) : (
+        {!isAdmin && (
           <button
             type="button"
             onClick={() => {
@@ -1168,14 +1155,52 @@ export default function App() {
             )}
 
             {/* Mobile Theme Toggle */}
-            <button
-              type="button"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="md:hidden inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
-              aria-label="Toggle dark mode"
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+            {!(isAdmin && currentTab === "addRecipe" && editingRecipe) && (
+              <button
+                type="button"
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="md:hidden inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                aria-label="Toggle dark mode"
+              >
+                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            )}
+
+            {/* Top Header Cancel / Save Changes (Edit Recipe Mode) */}
+            {isAdmin && currentTab === "addRecipe" && editingRecipe && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTab("recipes");
+                    setEditingRecipe(null);
+                  }}
+                  className="h-9 px-3.5 sm:px-4 rounded-full border border-border text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="submit-form-btn-top"
+                  type="submit"
+                  form="recipe-edit-form"
+                  disabled={isSavingRecipe}
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 sm:px-5 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-opacity disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                >
+                  {isSavingRecipe ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" strokeWidth={2.5} />
+                      <span className="hidden sm:inline">Save Changes</span>
+                      <span className="sm:hidden">Save</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Primary Pill CTA (Cook Well style) */}
             {isAdmin && currentTab !== "addRecipe" && (
@@ -1522,6 +1547,8 @@ export default function App() {
                     await handleSaveRecipe(recipe);
                   }}
                   editingRecipe={editingRecipe}
+                  formId="recipe-edit-form"
+                  onSavingChange={setIsSavingRecipe}
                 />
               </motion.div>
             ) : isAdmin ? (
