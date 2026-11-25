@@ -221,7 +221,7 @@ export default function RecipeModal({
               <button
                 type="button"
                 onClick={() => setIsCookingModeOpen(true)}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
+                className="inline-flex lg:hidden items-center gap-1.5 h-9 px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
               >
                 <Play className="w-3.5 h-3.5 fill-current text-primary" />
                 <span>Let&apos;s Cook</span>

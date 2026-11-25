@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Loader2,
   Plus,
+  Minus,
   Trash2,
   ArrowRight,
   Search,
@@ -18,7 +19,7 @@ import {
 import { Recipe, Ingredient, TopRatedRecipe } from "../types";
 import TopRatedSearch from "./TopRatedSearch";
 import RecipeIcon from "./RecipeIcon";
-import { getMealTypeButtonColor } from "../lib/utils";
+import { formatTime, getMealTypeButtonColor } from "../lib/utils";
 import { compressImageFile, searchStandInPhotosDetailed, StandInPhoto } from "../lib/imageSearch";
 
 interface RecipeFormModalProps {
@@ -36,6 +37,15 @@ const CUISINES = [
 ];
 
 const MEAL_TYPES = ["All", "Starter", "Main", "Side", "Drink", "Dessert", "Snack"] as const;
+
+const COOK_TIME_PRESETS = [
+  { label: "15m", mins: 15 },
+  { label: "30m", mins: 30 },
+  { label: "45m", mins: 45 },
+  { label: "1 hr", mins: 60 },
+  { label: "2 hr", mins: 120 },
+  { label: "4 hr", mins: 240 },
+];
 
 export default function RecipeFormModal({
   onClose,
@@ -55,7 +65,30 @@ export default function RecipeFormModal({
   const [description, setDescription] = useState("");
   const [cuisine, setCuisine] = useState("American");
   const [mealType, setMealType] = useState<(typeof MEAL_TYPES)[number] | "">("Main");
-  const [cookingTime, setCookingTime] = useState<number>(30);
+  const [cookHours, setCookHours] = useState<string>("");
+  const [cookMinutes, setCookMinutes] = useState<string>("30");
+
+  const parsedHours = Math.max(0, parseInt(cookHours, 10) || 0);
+  const parsedMinutes = Math.max(0, parseInt(cookMinutes, 10) || 0);
+  const cookingTime = parsedHours * 60 + parsedMinutes;
+
+  const setCookingTime = (totalMins: number | undefined | null) => {
+    const safeTotal = Math.max(0, Math.round(totalMins || 0));
+    const hrs = Math.floor(safeTotal / 60);
+    const mins = safeTotal % 60;
+    setCookHours(hrs > 0 ? String(hrs) : "");
+    setCookMinutes(mins > 0 ? String(mins) : hrs > 0 ? "" : "30");
+  };
+
+  const handleCookMinutesBlur = () => {
+    if (parsedMinutes >= 60) {
+      const extraHours = Math.floor(parsedMinutes / 60);
+      const remMins = parsedMinutes % 60;
+      const nextHours = parsedHours + extraHours;
+      setCookHours(nextHours > 0 ? String(nextHours) : "");
+      setCookMinutes(remMins > 0 ? String(remMins) : "");
+    }
+  };
   const [servings, setServings] = useState<number>(4);
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: "", amount: 1, unit: "" }]);
   const [instructions, setInstructions] = useState<string[]>([""]);
@@ -334,6 +367,10 @@ export default function RecipeFormModal({
       .map((i) => i.trim());
 
     setFormError(null);
+    if (cookingTime <= 0) {
+      setFormError("Please enter a cook time (hours or minutes).");
+      return;
+    }
     if (filteredIngredients.length === 0) {
       setFormError("Please add at least one ingredient.");
       return;
@@ -553,44 +590,140 @@ export default function RecipeFormModal({
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                   Short Description
                 </label>
-                <input
+                <textarea
                   id="recipe-desc-textarea"
-                  type="text"
+                  rows={3}
                   placeholder="What makes this dish great..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm"
+                  className="w-full min-h-[88px] px-4 py-2.5 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm leading-relaxed resize-y"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                    Cook Time (mins)
-                  </label>
-                  <input
-                    id="recipe-time-input"
-                    type="number"
-                    min={1}
-                    required
-                    value={cookingTime}
-                    onChange={(e) => setCookingTime(parseInt(e.target.value) || 0)}
-                    className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
-                  />
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-5">
+                <div className="w-full sm:max-w-sm space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="recipe-hours-input"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Cook Time
+                    </label>
+                    {cookingTime > 0 && (
+                      <span className="text-[11px] font-medium text-primary-dark tabular-nums">
+                        {formatTime(cookingTime)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="relative">
+                      <input
+                        id="recipe-hours-input"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={99}
+                        placeholder="0"
+                        value={cookHours}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setCookHours("");
+                          } else {
+                            const num = Math.max(0, Math.min(99, parseInt(raw, 10) || 0));
+                            setCookHours(num === 0 ? "" : String(num));
+                          }
+                        }}
+                        className="w-full h-10 pl-3.5 pr-11 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground/50"
+                        aria-label="Cook time hours"
+                      />
+                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        {parsedHours === 1 ? "hr" : "hrs"}
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        id="recipe-time-input"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        placeholder="0"
+                        value={cookMinutes}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setCookMinutes("");
+                          } else {
+                            const num = Math.max(0, parseInt(raw, 10) || 0);
+                            setCookMinutes(num === 0 ? "" : String(num));
+                          }
+                        }}
+                        onBlur={handleCookMinutesBlur}
+                        className="w-full h-10 pl-3.5 pr-12 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground/50"
+                        aria-label="Cook time minutes"
+                      />
+                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        min
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {COOK_TIME_PRESETS.map((preset) => {
+                      const active = cookingTime === preset.mins;
+                      return (
+                        <button
+                          key={preset.mins}
+                          type="button"
+                          onClick={() => setCookingTime(preset.mins)}
+                          className={`h-6 px-2.5 rounded-full text-[11px] font-medium tabular-nums transition-colors cursor-pointer ${
+                            active
+                              ? "bg-foreground text-background"
+                              : "bg-secondary text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+
+                <div className="shrink-0 space-y-2">
+                  <label
+                    htmlFor="recipe-servings-input"
+                    className="text-xs font-medium text-muted-foreground block"
+                  >
                     Servings
                   </label>
-                  <input
-                    id="recipe-servings-input"
-                    type="number"
-                    min={1}
-                    required
-                    value={servings}
-                    onChange={(e) => setServings(parseInt(e.target.value) || 1)}
-                    className="w-full h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
-                  />
+                  <div className="inline-flex items-center h-10 rounded-xl border border-border bg-card overflow-hidden focus-within:ring-2 focus-within:ring-ring/20">
+                    <button
+                      type="button"
+                      onClick={() => setServings((s) => Math.max(1, (s || 1) - 1))}
+                      disabled={servings <= 1}
+                      className="w-9 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-30 transition-colors cursor-pointer"
+                      aria-label="Decrease servings"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <input
+                      id="recipe-servings-input"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      required
+                      value={servings}
+                      onChange={(e) => setServings(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-12 h-full bg-transparent text-center text-sm font-medium text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setServings((s) => (s || 1) + 1)}
+                      className="w-9 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                      aria-label="Increase servings"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
