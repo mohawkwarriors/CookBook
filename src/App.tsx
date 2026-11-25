@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   collection,
@@ -152,11 +152,41 @@ export default function App() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [activeRecipe, setActiveRecipe] = useState<Recipe | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+  const returnTargetRef = useRef<{ scrollY: number; recipeId?: string } | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
   const [isSyncingLocal, setIsSyncingLocal] = useState(false);
   const [passcode, setPasscode] = useState("");
+
+  const handleAddRecipeTabMount = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    });
+  }, []);
+
+  const handleRecipesTabMount = useCallback((node: HTMLDivElement | null) => {
+    if (!node) return;
+    const target = returnTargetRef.current;
+    if (!target) return;
+    returnTargetRef.current = null;
+
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: target.scrollY, behavior: "instant" as ScrollBehavior });
+      if (target.recipeId) {
+        const cardEl = Array.from(node.querySelectorAll<HTMLElement>("[data-recipe-id]")).find(
+          (el) => el.getAttribute("data-recipe-id") === target.recipeId
+        );
+        if (cardEl) {
+          const rect = cardEl.getBoundingClientRect();
+          if (rect.top < 72 || rect.bottom > window.innerHeight - 16) {
+            cardEl.scrollIntoView({ block: "center", behavior: "instant" as ScrollBehavior });
+          }
+        }
+      }
+    });
+  }, []);
 
   // Auth State
   const [isAdmin, setIsAdmin] = useState(localStorage.getItem("cookbook_admin") === "true");
@@ -433,7 +463,8 @@ export default function App() {
     };
   }, []);
 
-  const handleSaveRecipe = async (recipeData: Omit<Recipe, "id" | "createdAt">) => {
+  const handleSaveRecipe = async (recipeData: Omit<Recipe, "id" | "createdAt">): Promise<string | undefined> => {
+    let savedId: string | undefined = editingRecipe?.id;
     if (isUsingLocalStorage) {
       let updatedRecipes = [...recipes];
       if (editingRecipe && editingRecipe.id) {
@@ -441,9 +472,11 @@ export default function App() {
           r.id === editingRecipe.id ? { ...recipeData, id: editingRecipe.id, createdAt: editingRecipe.createdAt } : r
         );
       } else {
+        const newId = `local-${Date.now()}`;
+        savedId = newId;
         const newRecipe = {
           ...recipeData,
-          id: `local-${Date.now()}`,
+          id: newId,
           createdAt: new Date().toISOString(),
         };
         updatedRecipes.unshift(newRecipe);
@@ -465,6 +498,7 @@ export default function App() {
           ...recipeData,
           createdAt: new Date().toISOString(),
         });
+        savedId = newDoc.id;
         const updated = [{ ...recipeData, id: newDoc.id, createdAt: new Date().toISOString() }, ...recipes];
         try {
           localStorage.setItem("zest_recipes", JSON.stringify(updated));
@@ -472,6 +506,7 @@ export default function App() {
       }
     }
     setEditingRecipe(null);
+    return savedId;
   };
 
   const handleDeleteRecipe = async (id: string) => {
@@ -522,6 +557,10 @@ export default function App() {
   };
 
   const handleEditTrigger = (recipe: Recipe) => {
+    returnTargetRef.current = {
+      scrollY: currentTab === "recipes" ? window.scrollY : 0,
+      recipeId: recipe.id,
+    };
     setEditingRecipe(recipe);
     setIsDetailOpen(false);
     setCurrentTab("addRecipe");
@@ -782,6 +821,9 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
+                if (currentTab === "recipes") {
+                  returnTargetRef.current = { scrollY: window.scrollY };
+                }
                 setEditingRecipe(null);
                 setCurrentTab("addRecipe");
                 setMobileMenuOpen(false);
@@ -1140,6 +1182,9 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
+                  if (currentTab === "recipes") {
+                    returnTargetRef.current = { scrollY: window.scrollY };
+                  }
                   setEditingRecipe(null);
                   setCurrentTab("addRecipe");
                 }}
@@ -1158,6 +1203,7 @@ export default function App() {
             {currentTab === "recipes" ? (
               <motion.div
                 key="tab-recipes"
+                ref={handleRecipesTabMount}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -1393,7 +1439,12 @@ export default function App() {
                       }
                     >
                       {filteredRecipes.map((recipe) => (
-                        <motion.div key={recipe.id} variants={recipeCardVariants} className="h-full">
+                        <motion.div
+                          key={recipe.id}
+                          data-recipe-id={recipe.id}
+                          variants={recipeCardVariants}
+                          className="h-full"
+                        >
                           <RecipeCard
                             recipe={recipe}
                             viewMode={viewMode}
@@ -1439,6 +1490,7 @@ export default function App() {
             ) : currentTab === "addRecipe" && isAdmin ? (
               <motion.div
                 key="tab-addRecipe"
+                ref={handleAddRecipeTabMount}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -1450,7 +1502,20 @@ export default function App() {
                     setEditingRecipe(null);
                   }}
                   onSave={async (recipe) => {
-                    await handleSaveRecipe(recipe);
+                    const wasEditing = Boolean(editingRecipe?.id);
+                    const editedId = editingRecipe?.id;
+                    const savedId = await handleSaveRecipe(recipe);
+                    if (wasEditing) {
+                      returnTargetRef.current = {
+                        scrollY: returnTargetRef.current?.scrollY ?? 0,
+                        recipeId: savedId || editedId,
+                      };
+                    } else {
+                      returnTargetRef.current = {
+                        scrollY: 0,
+                        recipeId: savedId,
+                      };
+                    }
                     setCurrentTab("recipes");
                   }}
                   onBackgroundSave={async (recipe) => {
