@@ -1369,8 +1369,8 @@ export default function App() {
                 {/* Recipe Grid / List Stage */}
                 {loadingRecipes ? (
                   /* Cook Well 4:5 Portrait Skeleton Loader */
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    {Array.from({ length: 10 }).map((_, idx) => (
+                  <div className="grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 lg:grid-cols-4">
+                    {Array.from({ length: 8 }).map((_, idx) => (
                       <div key={idx} className="space-y-2.5">
                         <div className="aspect-[4/5] rounded-xl bg-muted animate-pulse" />
                         <div className="space-y-1.5 px-0.5">
@@ -1434,7 +1434,7 @@ export default function App() {
                       animate="visible"
                       className={
                         viewMode === "grid"
-                          ? "grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                          ? "grid grid-cols-2 gap-x-5 gap-y-9 sm:grid-cols-3 lg:grid-cols-4"
                           : "grid grid-cols-1 md:grid-cols-2 gap-2.5"
                       }
                     >
