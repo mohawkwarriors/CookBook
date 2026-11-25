@@ -3,6 +3,7 @@ import path from "path";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
+import { cleanDishQuery, searchEditorialFoodImages } from "./src/lib/editorialImageSearch";
 
 dotenv.config();
 
@@ -520,124 +521,25 @@ app.get("/api/search-recipe-images", async (req, res) => {
     return;
   }
 
-  const cleaned =
-    q
-      .replace(/\([^)]*\)/g, " ")
-      .replace(
-        /\b(easy|quick|homemade|classic|best|authentic|simple|stovetop|instant pot|pressure cooker|air-fried|baked|multipurpose|style|sides)\b/gi,
-        " "
-      )
-      .replace(/[&/,-]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim() || q;
-
-  const blockedDomains = [
-    "shutterstock.com", "alamy.com", "gettyimages.com", "istockphoto.com",
-    "dreamstime.com", "123rf.com", "depositphotos.com", "vecteezy.com",
-    "freepik.com", "stock.adobe.com", "pinterest.com", "pinimg.com",
-    "youtube.com", "ytimg.com", "tiktok.com", "facebook.com", "instagram.com",
-    "amazon.com", "walmart.com", "treehugger.com",
-  ];
-  const editorialDomains = [
-    "teaforturmeric.com", "ministryofcurry.com", "recipetineats.com",
-    "seriouseats.com", "bonappetit.com", "nytimes.com", "halfbakedharvest.com",
-    "themediterraneandish.com", "feelgoodfoodie.net", "persianmama.com",
-    "unicornsinthekitchen.com", "indianhealthyrecipes.com", "cookwithmanali.com",
-    "simplyrecipes.com", "epicurious.com", "loveandlemons.com", "smittenkitchen.com",
-    "bbcgoodfood.com", "dishoom.com", "myheartbeets.com", "pipingpotcurry.com",
-    "thewoksoflife.com", "justonecookbook.com", "sallysbakingaddiction.com",
-    "preppykitchen.com", "kingarthurbaking.com", "foodandwine.com", "saveur.com",
-  ];
-
   const serperKey = process.env.SERPER_API_KEY;
   const braveKey = process.env.BRAVE_SEARCH_API_KEY;
 
   // 1. Primary: High-res editorial food-blog search via Serper.dev or Brave Search API
   if (serperKey || braveKey) {
-    try {
-      const searchQuery =
-        cuisine && cuisine !== "All" && cuisine !== "Other" && !cleaned.toLowerCase().includes(cuisine.toLowerCase())
-          ? `${cleaned} ${cuisine} recipe food photography`
-          : `${cleaned} recipe food photography`;
-
-      const scored: { url: string; label: string; source: string; score: number }[] = [];
-
-      if (serperKey) {
-        const serperRes = await fetch("https://google.serper.dev/images", {
-          method: "POST",
-          headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ q: searchQuery, num: 20 }),
-        });
-        if (serperRes.ok) {
-          const data: any = await serperRes.json();
-          for (const item of data.images || []) {
-            const url: string = item.imageUrl || "";
-            const pageUrl: string = item.link || "";
-            const w = Number(item.imageWidth) || 0;
-            const h = Number(item.imageHeight) || 0;
-            const lower = url.toLowerCase();
-            if (!url.startsWith("http") || lower.endsWith(".svg") || lower.endsWith(".gif")) continue;
-            if (blockedDomains.some((d) => lower.includes(d) || pageUrl.toLowerCase().includes(d))) continue;
-            if (w && h && (w < 450 || h < 450 || w / h > 2.0 || w / h < 0.48)) continue;
-
-            let host = "Web";
-            try {
-              host = new URL(pageUrl || url).hostname.replace(/^www\./, "");
-            } catch {}
-            let score = editorialDomains.some((d) => host.includes(d)) ? 40 : 0;
-            if (w >= 900 && h >= 900) score += 15;
-            if (w && h && w / h >= 0.65 && w / h <= 1.05) score += 20;
-            scored.push({ url, label: item.title || cleaned, source: host, score });
-          }
-        }
-      } else if (braveKey) {
-        const braveRes = await fetch(
-          `https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(searchQuery)}&count=20&safesearch=strict`,
-          { headers: { Accept: "application/json", "X-Subscription-Token": braveKey } }
-        );
-        if (braveRes.ok) {
-          const data: any = await braveRes.json();
-          for (const item of data.results || []) {
-            const url: string = item?.properties?.url || item?.thumbnail?.src || "";
-            const pageUrl: string = item?.url || "";
-            const w = Number(item?.properties?.width) || 0;
-            const h = Number(item?.properties?.height) || 0;
-            const lower = url.toLowerCase();
-            if (!url.startsWith("http") || lower.endsWith(".svg") || lower.endsWith(".gif")) continue;
-            if (blockedDomains.some((d) => lower.includes(d) || pageUrl.toLowerCase().includes(d))) continue;
-            if (w && h && (w < 450 || h < 450 || w / h > 2.0 || w / h < 0.48)) continue;
-
-            let host = "Web";
-            try {
-              host = new URL(pageUrl || url).hostname.replace(/^www\./, "");
-            } catch {}
-            let score = editorialDomains.some((d) => host.includes(d)) ? 40 : 0;
-            if (w >= 900 && h >= 900) score += 15;
-            if (w && h && w / h >= 0.65 && w / h <= 1.05) score += 20;
-            scored.push({ url, label: item.title || cleaned, source: host, score });
-          }
-        }
-      }
-
-      const seen = new Set<string>();
-      const top = scored
-        .sort((a, b) => b.score - a.score)
-        .filter((p) => {
-          if (seen.has(p.url)) return false;
-          seen.add(p.url);
-          return true;
-        })
-        .slice(0, 6)
-        .map(({ url, label, source }) => ({ url, label, source }));
-
-      if (top.length > 0) {
-        res.json({ photos: top, provider: serperKey ? "serper" : "brave" });
-        return;
-      }
-    } catch (err) {
-      console.warn("Editorial image API error, falling back:", err);
+    const result = await searchEditorialFoodImages({
+      query: q,
+      cuisine,
+      serperKey,
+      braveKey,
+      maxResults: 6,
+    });
+    if (result.photos.length > 0) {
+      res.json(result);
+      return;
     }
   }
+
+  const cleaned = cleanDishQuery(q);
 
   // 2. Fallback when no SERPER_API_KEY / BRAVE_SEARCH_API_KEY is configured yet
   const photos: { url: string; label: string; source: string }[] = [];
