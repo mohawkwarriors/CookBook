@@ -6,6 +6,8 @@ interface InstructionStepProps {
   key?: React.Key;
   step: string;
   idx: number;
+  stepNumber?: number;
+  inCard?: boolean;
   isCompleted: boolean;
   isParallel: boolean;
   onToggleComplete: () => void;
@@ -50,6 +52,8 @@ const formatTime = (totalSeconds: number) => {
 export default function InstructionStep({
   step,
   idx,
+  stepNumber,
+  inCard = false,
   isCompleted,
   isParallel,
   onToggleComplete,
@@ -103,6 +107,8 @@ export default function InstructionStep({
       className={`group cursor-pointer w-full select-none rounded-2xl transition-colors ${
         isParallel
           ? "p-4 border border-border bg-secondary/40 hover:bg-secondary/70"
+          : inCard
+          ? "py-3.5 px-3 hover:bg-secondary/50"
           : "py-4 px-3 -mx-3 hover:bg-secondary/50"
       }`}
       onClick={onToggleComplete}
@@ -119,7 +125,11 @@ export default function InstructionStep({
               : "bg-foreground text-background border border-foreground"
           }`}
         >
-          {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : idx + 1}
+          {isCompleted ? (
+            <Check className="w-3.5 h-3.5" strokeWidth={3} />
+          ) : (
+            stepNumber ?? idx + 1
+          )}
         </motion.div>
 
         <div className="flex-1 min-w-0 space-y-3">

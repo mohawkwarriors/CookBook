@@ -16,6 +16,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { Recipe } from "../types";
+import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
 
 interface CookingModeProps {
   recipe: Recipe;
@@ -113,18 +114,54 @@ export default function CookingMode({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
+  const parsedMethod = useMemo(
+    () => parseInstructionChapters(recipe.instructions),
+    [recipe.instructions]
+  );
+
+  const parsedIngredients = useMemo(
+    () =>
+      parseIngredientGroups(
+        recipe.ingredients,
+        parsedMethod.chapters.map((c) => c.title)
+      ),
+    [recipe.ingredients, parsedMethod.chapters]
+  );
+
   const totalSteps = recipe.instructions.length;
-  const currentInstruction = recipe.instructions[currentStep] || "";
+  const activeStepMeta = parsedMethod.isMultiComponent
+    ? parsedMethod.stepMetaByIndex.get(currentStep) || null
+    : null;
+  const currentInstruction = activeStepMeta
+    ? activeStepMeta.text
+    : recipe.instructions[currentStep] || "";
   const isCurrentCompleted = completedSteps.has(currentStep);
 
   // Cook Well signature feature: match ingredients mentioned in the active step
   const stepIngredients = useMemo(() => {
     const lowerStep = currentInstruction.toLowerCase();
     const stopWords = new Set(["fresh", "large", "small", "medium", "chopped", "diced", "minced", "sliced", "ground", "dried", "extra", "virgin", "kosher", "sea", "black", "white", "red", "green", "yellow", "whole", "unsalted", "salted", "cold", "warm", "hot", "water", "or", "and", "of", "for", "to", "with", "in", "finely", "roughly", "thinly"]);
+
+    const activeChapterKey = activeStepMeta?.chapterTitle.trim().toLowerCase() ?? null;
+    const hasMatchingGroup =
+      Boolean(activeChapterKey) &&
+      parsedIngredients.isGrouped &&
+      parsedIngredients.groups.some(
+        (g) => g.title.trim().toLowerCase() === activeChapterKey
+      );
+
     return recipe.ingredients
-      .map((ing, idx) => ({ ing, idx }))
-      .filter(({ ing }) => {
-        const cleaned = ing.name.toLowerCase().replace(/[^a-z\s]/g, " ");
+      .map((ing, idx) => ({
+        ing,
+        idx,
+        displayName: parsedIngredients.displayNameByIndex.get(idx) ?? ing.name,
+        groupTitle: parsedIngredients.groupTitleByIndex.get(idx)?.trim().toLowerCase() ?? null,
+      }))
+      .filter(({ displayName, groupTitle }) => {
+        if (hasMatchingGroup && groupTitle !== activeChapterKey) {
+          return false;
+        }
+        const cleaned = displayName.toLowerCase().replace(/[^a-z\s]/g, " ");
         const words = cleaned.split(/\s+/).filter((w) => w.length >= 3 && !stopWords.has(w));
         if (words.length === 0) return lowerStep.includes(cleaned.trim());
         return words.some((w) => {
@@ -132,7 +169,15 @@ export default function CookingMode({
           return lowerStep.includes(stem);
         });
       });
-  }, [currentInstruction, recipe.ingredients]);
+  }, [
+    currentInstruction,
+    recipe.ingredients,
+    activeStepMeta,
+    parsedIngredients.isGrouped,
+    parsedIngredients.groups,
+    parsedIngredients.displayNameByIndex,
+    parsedIngredients.groupTitleByIndex,
+  ]);
 
   const initialTime = extractTimeInSeconds(currentInstruction);
   const [timeLeft, setTimeLeft] = useState<number>(initialTime || 0);
@@ -331,10 +376,21 @@ export default function CookingMode({
               className="space-y-8"
             >
               {/* Step Counter & Mark Complete Pill */}
-              <div className="flex items-center justify-between gap-4">
-                <span className="font-mono text-xs font-medium uppercase tracking-widest text-muted-foreground tabular-nums">
-                  Step {currentStep + 1} of {totalSteps}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {activeStepMeta && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary-dark dark:text-primary text-xs font-semibold">
+                      <span className="font-mono text-[10px] uppercase tracking-wider opacity-80">
+                        Part {activeStepMeta.chapterNumber}
+                      </span>
+                      <span className="opacity-40">·</span>
+                      <span>{activeStepMeta.chapterTitle}</span>
+                    </span>
+                  )}
+                  <span className="font-mono text-xs font-medium uppercase tracking-widest text-muted-foreground tabular-nums">
+                    Step {currentStep + 1} of {totalSteps}
+                  </span>
+                </div>
 
                 <button
                   type="button"
@@ -362,7 +418,7 @@ export default function CookingMode({
                     Ingredients in this step
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {stepIngredients.map(({ ing, idx }) => {
+                    {stepIngredients.map(({ ing, idx, displayName }) => {
                       const done = completedIngredients.has(idx);
                       return (
                         <button
@@ -382,7 +438,7 @@ export default function CookingMode({
                           >
                             {done && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
                           </span>
-                          <span className="font-medium">{ing.name}</span>
+                          <span className="font-medium">{displayName}</span>
                           {(ing.amount > 0 || ing.unit) && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                               {formatAmount(ing.amount)} {ing.unit}
@@ -600,36 +656,73 @@ export default function CookingMode({
                 </button>
               </div>
 
-              <ul className="flex-1 overflow-y-auto px-5 divide-y divide-border/70">
-                {recipe.ingredients.map((ing, idx) => {
-                  const isDone = completedIngredients.has(idx);
+              <div className="flex-1 overflow-y-auto px-5 py-3">
+                {(() => {
+                  const renderDrawerRow = (
+                    ing: Recipe["ingredients"][number],
+                    idx: number,
+                    displayName: string
+                  ) => {
+                    const isDone = completedIngredients.has(idx);
+                    return (
+                      <li
+                        key={idx}
+                        onClick={() => onToggleIngredientComplete(idx)}
+                        className="flex items-center justify-between gap-3 py-3.5 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                              isDone
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "border-neutral-300 dark:border-neutral-600"
+                            }`}
+                          >
+                            {isDone && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                          </span>
+                          <span className={`text-sm ${isDone ? "line-through text-muted-foreground/60" : "text-foreground"}`}>
+                            {displayName}
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
+                          {formatAmount(ing.amount)} {ing.unit}
+                        </span>
+                      </li>
+                    );
+                  };
+
+                  if (!parsedIngredients.isGrouped) {
+                    return (
+                      <ul className="divide-y divide-border/70">
+                        {recipe.ingredients.map((ing, idx) =>
+                          renderDrawerRow(ing, idx, ing.name)
+                        )}
+                      </ul>
+                    );
+                  }
+
                   return (
-                    <li
-                      key={idx}
-                      onClick={() => onToggleIngredientComplete(idx)}
-                      className="flex items-center justify-between gap-3 py-3.5 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span
-                          className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
-                            isDone
-                              ? "bg-primary border-primary text-primary-foreground"
-                              : "border-neutral-300 dark:border-neutral-600"
-                          }`}
-                        >
-                          {isDone && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
-                        </span>
-                        <span className={`text-sm ${isDone ? "line-through text-muted-foreground/60" : "text-foreground"}`}>
-                          {ing.name}
-                        </span>
-                      </div>
-                      <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
-                        {formatAmount(ing.amount)} {ing.unit}
-                      </span>
-                    </li>
+                    <div className="space-y-5 py-1">
+                      {parsedIngredients.groups.map((group) => (
+                        <div key={group.id}>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1">
+                            {group.title}
+                          </p>
+                          <ul className="divide-y divide-border/70 border-y border-border/70">
+                            {group.items.map((item) =>
+                              renderDrawerRow(
+                                item.ingredient,
+                                item.originalIdx,
+                                item.displayName
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
                   );
-                })}
-              </ul>
+                })()}
+              </div>
             </motion.div>
           </div>
         )}

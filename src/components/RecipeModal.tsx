@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   X,
@@ -21,6 +21,7 @@ import InstructionStep from "./InstructionStep";
 import RecipeIcon from "./RecipeIcon";
 import CookingMode from "./CookingMode";
 import { formatTime, getMealTypeColor } from "../lib/utils";
+import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
 
 interface RecipeModalProps {
   recipe: Recipe | null;
@@ -49,6 +50,58 @@ const formatIngredientName = (name: string) => {
     .join(" ");
 };
 
+interface StepBlockItem {
+  step: string;
+  idx: number;
+  displayNumber: number;
+}
+
+type InstructionBlock =
+  | { type: "single"; item: StepBlockItem }
+  | { type: "parallel"; items: StepBlockItem[] };
+
+const buildInstructionBlocks = (items: StepBlockItem[]): InstructionBlock[] => {
+  const blocks: InstructionBlock[] = [];
+  let currentParallelBlock: StepBlockItem[] | null = null;
+
+  items.forEach((item, localIdx) => {
+    const lowerStep = item.step.toLowerCase().trim();
+    const isParallel =
+      localIdx > 0 &&
+      (lowerStep.startsWith("meanwhile") ||
+        lowerStep.startsWith("while") ||
+        lowerStep.startsWith("in parallel") ||
+        lowerStep.startsWith("separately") ||
+        lowerStep.startsWith("at the same time") ||
+        lowerStep.startsWith("for the ") ||
+        lowerStep.startsWith("to make the ") ||
+        lowerStep.startsWith("prepare the "));
+
+    if (isParallel) {
+      if (!currentParallelBlock) {
+        const lastBlock = blocks.pop();
+        if (lastBlock?.type === "single") {
+          currentParallelBlock = [lastBlock.item, item];
+          blocks.push({ type: "parallel", items: currentParallelBlock });
+        } else if (lastBlock?.type === "parallel") {
+          lastBlock.items.push(item);
+          blocks.push(lastBlock);
+          currentParallelBlock = lastBlock.items;
+        } else {
+          blocks.push({ type: "single", item });
+        }
+      } else {
+        currentParallelBlock.push(item);
+      }
+    } else {
+      currentParallelBlock = null;
+      blocks.push({ type: "single", item });
+    }
+  });
+
+  return blocks;
+};
+
 export default function RecipeModal({
   recipe,
   isOpen,
@@ -70,11 +123,53 @@ export default function RecipeModal({
   const [plannedSuccess, setPlannedSuccess] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [completedIngredients, setCompletedIngredients] = useState<Set<number>>(new Set());
+  const [collapsedChapters, setCollapsedChapters] = useState<Set<string>>(new Set());
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
   const [isIngredientsCollapsed, setIsIngredientsCollapsed] = useState(false);
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
+
+  const parsedMethod = useMemo(
+    () => parseInstructionChapters(recipe?.instructions ?? []),
+    [recipe?.instructions]
+  );
+
+  const parsedIngredients = useMemo(
+    () =>
+      parseIngredientGroups(
+        recipe?.ingredients ?? [],
+        parsedMethod.chapters.map((c) => c.title)
+      ),
+    [recipe?.ingredients, parsedMethod.chapters]
+  );
+
+  const toggleStepComplete = (stepIdx: number) => {
+    setCompletedSteps((prev) => {
+      const next = new Set(prev);
+      if (next.has(stepIdx)) next.delete(stepIdx);
+      else next.add(stepIdx);
+      return next;
+    });
+  };
+
+  const toggleIngredientComplete = (ingIdx: number) => {
+    setCompletedIngredients((prev) => {
+      const next = new Set(prev);
+      if (next.has(ingIdx)) next.delete(ingIdx);
+      else next.add(ingIdx);
+      return next;
+    });
+  };
+
+  const toggleChapterCollapsed = (chapterId: string) => {
+    setCollapsedChapters((prev) => {
+      const next = new Set(prev);
+      if (next.has(chapterId)) next.delete(chapterId);
+      else next.add(chapterId);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (recipe) {
@@ -86,6 +181,7 @@ export default function RecipeModal({
       setShowDeleteConfirm(false);
       setCompletedSteps(new Set());
       setCompletedIngredients(new Set());
+      setCollapsedChapters(new Set());
       setIsCookingModeOpen(false);
       setIsIngredientsCollapsed(false);
       setHasAutoCollapsed(false);
@@ -498,21 +594,20 @@ export default function RecipeModal({
                     className={`transition-all duration-300 overflow-hidden ${
                       isIngredientsCollapsed
                         ? "max-h-0 opacity-0 md:max-h-none md:opacity-100"
-                        : "max-h-[2000px] opacity-100"
+                        : "max-h-[4000px] opacity-100"
                     }`}
                   >
-                    <ul className="divide-y divide-border/70 border-y border-border/70">
-                      {recipe.ingredients.map((ing, idx) => {
-                        const isCompleted = completedIngredients.has(idx);
+                    {(() => {
+                      const renderIngredientRow = (
+                        ing: Recipe["ingredients"][number],
+                        originalIdx: number,
+                        displayName: string
+                      ) => {
+                        const isCompleted = completedIngredients.has(originalIdx);
                         return (
                           <li
-                            key={idx}
-                            onClick={() => {
-                              const next = new Set(completedIngredients);
-                              if (next.has(idx)) next.delete(idx);
-                              else next.add(idx);
-                              setCompletedIngredients(next);
-                            }}
+                            key={originalIdx}
+                            onClick={() => toggleIngredientComplete(originalIdx)}
                             className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 -mx-2 px-2 rounded-lg transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
@@ -532,7 +627,7 @@ export default function RecipeModal({
                                     : "text-foreground"
                                 }`}
                               >
-                                {formatIngredientName(ing.name)}
+                                {formatIngredientName(displayName)}
                               </span>
                             </div>
                             <span
@@ -544,8 +639,39 @@ export default function RecipeModal({
                             </span>
                           </li>
                         );
-                      })}
-                    </ul>
+                      };
+
+                      if (!parsedIngredients.isGrouped) {
+                        return (
+                          <ul className="divide-y divide-border/70 border-y border-border/70">
+                            {recipe.ingredients.map((ing, idx) =>
+                              renderIngredientRow(ing, idx, ing.name)
+                            )}
+                          </ul>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-5">
+                          {parsedIngredients.groups.map((group) => (
+                            <div key={group.id}>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
+                                {group.title}
+                              </p>
+                              <ul className="divide-y divide-border/70 border-y border-border/70">
+                                {group.items.map((item) =>
+                                  renderIngredientRow(
+                                    item.ingredient,
+                                    item.originalIdx,
+                                    item.displayName
+                                  )
+                                )}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
 
                     {/* Nutrition Summary (if present) */}
                     {recipe.nutrition && (
@@ -586,99 +712,188 @@ export default function RecipeModal({
 
                 {/* Right Column: Method / Instructions */}
                 <div className="md:col-span-7 lg:col-span-8 pt-2 md:pt-8 space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
                       Method
                     </h2>
-                    <span className="text-xs font-mono tabular-nums text-muted-foreground">
-                      {completedSteps.size} / {recipe.instructions.length} completed
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {parsedMethod.isMultiComponent && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (collapsedChapters.size === parsedMethod.chapters.length) {
+                              setCollapsedChapters(new Set());
+                            } else {
+                              setCollapsedChapters(
+                                new Set(parsedMethod.chapters.map((c) => c.id))
+                              );
+                            }
+                          }}
+                          className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer print:hidden"
+                        >
+                          {collapsedChapters.size === parsedMethod.chapters.length
+                            ? "Expand all"
+                            : "Collapse all"}
+                        </button>
+                      )}
+                      <span className="text-xs font-mono tabular-nums text-muted-foreground">
+                        {completedSteps.size} / {recipe.instructions.length} completed
+                      </span>
+                    </div>
                   </div>
 
                   <div>
                     {(() => {
-                      type InstructionBlock =
-                        | { type: "single"; step: string; idx: number }
-                        | { type: "parallel"; steps: { step: string; idx: number }[] };
-                      const blocks: InstructionBlock[] = [];
-                      let currentParallelBlock: { step: string; idx: number }[] | null = null;
-
-                      recipe.instructions.forEach((step, idx) => {
-                        const lowerStep = step.toLowerCase().trim();
-                        const isParallel =
-                          idx > 0 &&
-                          (lowerStep.startsWith("meanwhile") ||
-                            lowerStep.startsWith("while") ||
-                            lowerStep.startsWith("in parallel") ||
-                            lowerStep.startsWith("separately") ||
-                            lowerStep.startsWith("at the same time") ||
-                            lowerStep.startsWith("for the ") ||
-                            lowerStep.startsWith("to make the ") ||
-                            lowerStep.startsWith("prepare the "));
-
-                        if (isParallel) {
-                          if (!currentParallelBlock) {
-                            const lastBlock = blocks.pop();
-                            if (lastBlock?.type === "single") {
-                              currentParallelBlock = [lastBlock, { step, idx }];
-                              blocks.push({ type: "parallel", steps: currentParallelBlock });
-                            } else if (lastBlock?.type === "parallel") {
-                              lastBlock.steps.push({ step, idx });
-                              blocks.push(lastBlock);
-                              currentParallelBlock = lastBlock.steps;
-                            } else {
-                              blocks.push({ type: "single", step, idx });
-                            }
-                          } else {
-                            currentParallelBlock.push({ step, idx });
-                          }
-                        } else {
-                          currentParallelBlock = null;
-                          blocks.push({ type: "single", step, idx });
-                        }
-                      });
-
-                      return (
+                      const renderBlocks = (blocks: InstructionBlock[], inCard: boolean) => (
                         <div className="divide-y divide-border/60">
                           {blocks.map((block, bIdx) => {
                             if (block.type === "single") {
                               return (
-                                <div key={bIdx} className="py-1">
+                                <div key={block.item.idx} className="py-1">
                                   <InstructionStep
-                                    step={block.step}
-                                    idx={block.idx}
-                                    isCompleted={completedSteps.has(block.idx)}
+                                    step={block.item.step}
+                                    idx={block.item.idx}
+                                    stepNumber={block.item.displayNumber}
+                                    inCard={inCard}
+                                    isCompleted={completedSteps.has(block.item.idx)}
                                     isParallel={false}
-                                    onToggleComplete={() => {
-                                      const next = new Set(completedSteps);
-                                      if (next.has(block.idx)) next.delete(block.idx);
-                                      else next.add(block.idx);
-                                      setCompletedSteps(next);
-                                    }}
+                                    onToggleComplete={() => toggleStepComplete(block.item.idx)}
                                   />
                                 </div>
                               );
                             }
 
-                            const gridCols = block.steps.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
+                            const gridCols =
+                              block.items.length === 2 ? "sm:grid-cols-2" : "sm:grid-cols-3";
                             return (
-                              <div key={bIdx} className={`py-4 grid grid-cols-1 ${gridCols} gap-3`}>
-                                {block.steps.map((s) => (
+                              <div
+                                key={`parallel-${bIdx}`}
+                                className={`py-4 grid grid-cols-1 ${gridCols} gap-3 ${
+                                  inCard ? "px-2" : ""
+                                }`}
+                              >
+                                {block.items.map((s) => (
                                   <InstructionStep
                                     key={s.idx}
                                     step={s.step}
                                     idx={s.idx}
+                                    stepNumber={s.displayNumber}
+                                    inCard={inCard}
                                     isCompleted={completedSteps.has(s.idx)}
                                     isParallel={true}
-                                    onToggleComplete={() => {
-                                      const next = new Set(completedSteps);
-                                      if (next.has(s.idx)) next.delete(s.idx);
-                                      else next.add(s.idx);
-                                      setCompletedSteps(next);
-                                    }}
+                                    onToggleComplete={() => toggleStepComplete(s.idx)}
                                   />
                                 ))}
                               </div>
+                            );
+                          })}
+                        </div>
+                      );
+
+                      // Single-component recipe: keep clean flat list with zero extra chrome
+                      if (!parsedMethod.isMultiComponent) {
+                        const flatBlocks = buildInstructionBlocks(
+                          recipe.instructions.map((step, idx) => ({
+                            step,
+                            idx,
+                            displayNumber: idx + 1,
+                          }))
+                        );
+                        return renderBlocks(flatBlocks, false);
+                      }
+
+                      // Multi-component recipe: Option 3 Collapsible Chapters
+                      return (
+                        <div className="space-y-3.5">
+                          {parsedMethod.chapters.map((chapter) => {
+                            const doneInChapter = chapter.steps.filter((s) =>
+                              completedSteps.has(s.originalIdx)
+                            ).length;
+                            const isChapterDone =
+                              chapter.steps.length > 0 && doneInChapter === chapter.steps.length;
+                            const isCollapsed = collapsedChapters.has(chapter.id);
+                            const chapterBlocks = buildInstructionBlocks(
+                              chapter.steps.map((s, localIdx) => ({
+                                step: s.text,
+                                idx: s.originalIdx,
+                                displayNumber: localIdx + 1,
+                              }))
+                            );
+
+                            return (
+                              <section
+                                key={chapter.id}
+                                className={`rounded-2xl border overflow-hidden transition-colors ${
+                                  isChapterDone
+                                    ? "border-primary/40 bg-secondary/30"
+                                    : "border-border bg-card/60"
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  aria-expanded={!isCollapsed}
+                                  onClick={() => toggleChapterCollapsed(chapter.id)}
+                                  className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-secondary/50 transition-colors cursor-pointer"
+                                >
+                                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 min-w-0">
+                                    <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.12em] text-primary-dark dark:text-primary shrink-0">
+                                      Part {chapter.chapterNumber}
+                                    </span>
+                                    <h3
+                                      className={`font-serif text-xl sm:text-[22px] font-semibold leading-tight tracking-tight transition-colors ${
+                                        isChapterDone
+                                          ? "text-muted-foreground line-through"
+                                          : "text-foreground"
+                                      }`}
+                                    >
+                                      {chapter.title}
+                                    </h3>
+                                  </div>
+
+                                  <div className="flex items-center gap-2.5 shrink-0">
+                                    <span
+                                      className={`inline-flex items-center gap-1 text-xs font-mono tabular-nums px-2.5 py-0.5 rounded-full border transition-colors ${
+                                        isChapterDone
+                                          ? "bg-primary/15 text-primary-dark dark:text-primary border-primary/30 font-semibold"
+                                          : "bg-secondary text-muted-foreground border-transparent"
+                                      }`}
+                                    >
+                                      {isChapterDone ? (
+                                        <>
+                                          <Check className="w-3 h-3" strokeWidth={3} />
+                                          <span>Complete</span>
+                                        </>
+                                      ) : (
+                                        <span>
+                                          {doneInChapter} / {chapter.steps.length}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <ChevronDown
+                                      className={`w-4 h-4 text-muted-foreground transition-transform duration-200 print:hidden ${
+                                        isCollapsed ? "-rotate-90" : ""
+                                      }`}
+                                    />
+                                  </div>
+                                </button>
+
+                                <AnimatePresence initial={false}>
+                                  {!isCollapsed && (
+                                    <motion.div
+                                      key={`${chapter.id}-body`}
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                      className="overflow-hidden border-t border-border/70 print:!h-auto print:!opacity-100"
+                                    >
+                                      <div className="px-2 sm:px-3 py-1">
+                                        {renderBlocks(chapterBlocks, true)}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </section>
                             );
                           })}
                         </div>
