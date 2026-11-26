@@ -89,6 +89,19 @@ export default function RecipeFormModal({
       setCookMinutes(remMins > 0 ? String(remMins) : "");
     }
   };
+
+  const stepCookHours = (delta: number) => {
+    const nextHours = Math.max(0, Math.min(99, parsedHours + delta));
+    setCookHours(nextHours > 0 ? String(nextHours) : "");
+  };
+
+  const stepCookMinutes = (delta: number) => {
+    const nextTotal = Math.max(0, Math.min(99 * 60 + 55, cookingTime + delta));
+    const hrs = Math.floor(nextTotal / 60);
+    const mins = nextTotal % 60;
+    setCookHours(hrs > 0 ? String(hrs) : "");
+    setCookMinutes(mins > 0 ? String(mins) : "");
+  };
   const [servings, setServings] = useState<number>(4);
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: "", amount: 1, unit: "" }]);
   const [instructions, setInstructions] = useState<string[]>([""]);
@@ -600,9 +613,9 @@ export default function RecipeFormModal({
                 />
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-5">
-                <div className="w-full sm:max-w-sm space-y-2">
-                  <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-start gap-4 sm:gap-5">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
                     <label
                       htmlFor="recipe-hours-input"
                       className="text-xs font-medium text-muted-foreground"
@@ -615,56 +628,98 @@ export default function RecipeFormModal({
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative">
-                      <input
-                        id="recipe-hours-input"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        max={99}
-                        placeholder="0"
-                        value={cookHours}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          if (raw === "") {
-                            setCookHours("");
-                          } else {
-                            const num = Math.max(0, Math.min(99, parseInt(raw, 10) || 0));
-                            setCookHours(num === 0 ? "" : String(num));
-                          }
-                        }}
-                        className="w-full h-10 pl-3.5 pr-11 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground/50"
-                        aria-label="Cook time hours"
-                      />
-                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                        {parsedHours === 1 ? "hr" : "hrs"}
-                      </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Hours Stepper */}
+                    <div className="inline-flex items-center h-10 rounded-xl border border-border bg-card overflow-hidden focus-within:ring-2 focus-within:ring-ring/20">
+                      <button
+                        type="button"
+                        onClick={() => stepCookHours(-1)}
+                        disabled={parsedHours <= 0}
+                        className="w-9 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-30 transition-colors cursor-pointer"
+                        aria-label="Decrease cook time hours"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="w-16 h-full flex items-center justify-center gap-1 px-1">
+                        <input
+                          id="recipe-hours-input"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={99}
+                          placeholder="0"
+                          value={cookHours}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              setCookHours("");
+                            } else {
+                              const num = Math.max(0, Math.min(99, parseInt(raw, 10) || 0));
+                              setCookHours(num === 0 ? "" : String(num));
+                            }
+                          }}
+                          className="w-7 h-full bg-transparent text-right text-sm font-medium text-foreground tabular-nums focus:outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          aria-label="Cook time hours"
+                        />
+                        <span className="text-xs text-muted-foreground select-none">
+                          {parsedHours === 1 ? "hr" : "hrs"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => stepCookHours(1)}
+                        disabled={parsedHours >= 99}
+                        className="w-9 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-30 transition-colors cursor-pointer"
+                        aria-label="Increase cook time hours"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <div className="relative">
-                      <input
-                        id="recipe-time-input"
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        placeholder="0"
-                        value={cookMinutes}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          if (raw === "") {
-                            setCookMinutes("");
-                          } else {
-                            const num = Math.max(0, parseInt(raw, 10) || 0);
-                            setCookMinutes(num === 0 ? "" : String(num));
-                          }
-                        }}
-                        onBlur={handleCookMinutesBlur}
-                        className="w-full h-10 pl-3.5 pr-12 bg-card text-foreground border border-border rounded-xl text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground/50"
-                        aria-label="Cook time minutes"
-                      />
-                      <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                        min
-                      </span>
+
+                    {/* Minutes Stepper */}
+                    <div className="inline-flex items-center h-10 rounded-xl border border-border bg-card overflow-hidden focus-within:ring-2 focus-within:ring-ring/20">
+                      <button
+                        type="button"
+                        onClick={() => stepCookMinutes(-5)}
+                        disabled={cookingTime <= 0}
+                        className="w-9 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-30 transition-colors cursor-pointer"
+                        aria-label="Decrease cook time by 5 minutes"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="w-16 h-full flex items-center justify-center gap-1 px-1">
+                        <input
+                          id="recipe-time-input"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          placeholder="0"
+                          value={cookMinutes}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === "") {
+                              setCookMinutes("");
+                            } else {
+                              const num = Math.max(0, parseInt(raw, 10) || 0);
+                              setCookMinutes(num === 0 ? "" : String(num));
+                            }
+                          }}
+                          onBlur={handleCookMinutesBlur}
+                          className="w-7 h-full bg-transparent text-right text-sm font-medium text-foreground tabular-nums focus:outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          aria-label="Cook time minutes"
+                        />
+                        <span className="text-xs text-muted-foreground select-none">
+                          min
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => stepCookMinutes(5)}
+                        className="w-9 h-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                        aria-label="Increase cook time by 5 minutes"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -713,7 +768,7 @@ export default function RecipeFormModal({
                       required
                       value={servings}
                       onChange={(e) => setServings(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="w-12 h-full bg-transparent text-center text-sm font-medium text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-16 h-full bg-transparent text-center text-sm font-medium text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <button
                       type="button"
