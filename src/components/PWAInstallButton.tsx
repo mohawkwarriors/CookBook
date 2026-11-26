@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { Download, X, Share, PlusSquare, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export const PWAInstallButton: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  useBodyScrollLock(showIOSGuide);
 
   // If already running as an installed PWA, hide the button
   if (isInstalled) {

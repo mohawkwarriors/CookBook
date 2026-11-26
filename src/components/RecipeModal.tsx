@@ -22,6 +22,7 @@ import RecipeIcon from "./RecipeIcon";
 import CookingMode from "./CookingMode";
 import { formatTime, getMealTypeColor } from "../lib/utils";
 import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface RecipeModalProps {
   recipe: Recipe | null;
@@ -133,6 +134,8 @@ export default function RecipeModal({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const ingredientsScrollRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
+
+  useBodyScrollLock(Boolean(isOpen && recipe));
 
   const parsedMethod = useMemo(
     () => parseInstructionChapters(recipe?.instructions ?? []),

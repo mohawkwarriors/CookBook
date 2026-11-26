@@ -194,3 +194,18 @@ body {
   color: var(--ri-dark-icon);
 }
 
+@media screen {
+  html.modal-scroll-lock,
+  body.modal-scroll-lock {
+    overflow: hidden !important;
+  }
+}
+
+@media print {
+  html.modal-scroll-lock,
+  body.modal-scroll-lock {
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+}
+

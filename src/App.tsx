@@ -22,6 +22,7 @@ import CookbookLogo from "./components/CookbookLogo";
 import { PWAInstallPopup } from "./components/PWAInstallPopup";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { APP_VERSION, BUILD_DATE, BUILD_ID } from "./version";
+import { useBodyScrollLock } from "./hooks/useBodyScrollLock";
 import { getMealTypeButtonColor } from "./lib/utils";
 import { STARTER_RECIPES } from "./data/starterRecipes";
 import {
@@ -204,6 +205,8 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(localStorage.getItem("cookbook_admin") === "true");
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+
+  useBodyScrollLock(mobileMenuOpen || (isAdminPanelOpen && isAdmin) || isLoginModalOpen);
 
   useEffect(() => {
     (window as any).__COOKBOOK_VERSION__ = APP_VERSION;

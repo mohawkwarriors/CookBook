@@ -3,6 +3,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { X, Share, PlusSquare, Smartphone, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CookbookLogo from './CookbookLogo';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const STORAGE_KEY = 'cookbook_install_prompt_resolved';
 
@@ -10,6 +11,8 @@ export const PWAInstallPopup: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [isOpen, setIsOpen] = useState(false);
   const [showIOSSteps, setShowIOSSteps] = useState(false);
+
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     // Check if the user already responded or if app is already running as installed PWA

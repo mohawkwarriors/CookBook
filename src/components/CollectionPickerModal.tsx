@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Bookmark, Plus, Check, FolderHeart } from "lucide-react";
 import { Recipe, RecipeCollection } from "../types";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface CollectionPickerModalProps {
   recipe: Recipe | null;
@@ -20,6 +21,8 @@ export default function CollectionPickerModal({
 }: CollectionPickerModalProps) {
   const [newName, setNewName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  useBodyScrollLock(Boolean(recipe && recipe.id));
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

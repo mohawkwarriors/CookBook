@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { MealPlanEntry, Recipe } from "../types";
 import RecipeIcon from "./RecipeIcon";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface MealPlannerProps {
   mealPlan: MealPlanEntry[];
@@ -40,6 +41,8 @@ export default function MealPlanner({
   const [addingForDate, setAddingForDate] = useState<string | null>(null);
   const [addingMealType, setAddingMealType] = useState<(typeof MEAL_TYPES)[number]>("Dinner");
   const [pickerQuery, setPickerQuery] = useState("");
+
+  useBodyScrollLock(Boolean(addingForDate) || showGroceryDrawer);
 
   const getWeekDays = (baseDate: Date) => {
     const sunday = new Date(baseDate);

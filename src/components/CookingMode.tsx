@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Recipe } from "../types";
 import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface CookingModeProps {
   recipe: Recipe;
@@ -113,6 +114,8 @@ export default function CookingMode({
   const [showIngredients, setShowIngredients] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+
+  useBodyScrollLock(isOpen);
 
   const parsedMethod = useMemo(
     () => parseInstructionChapters(recipe.instructions),
