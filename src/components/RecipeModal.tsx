@@ -538,8 +538,8 @@ export default function RecipeModal({
               {/* Core Two-Column Layout: Sticky Ingredients + Instructions */}
               <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-12 pt-2 border-t border-border">
                 {/* Left Column: Ingredients + Scaler + Nutrition */}
-                <div className="md:col-span-5 lg:col-span-4 md:sticky md:top-8 self-start space-y-6 pt-6 md:pt-8">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="md:col-span-5 lg:col-span-4 md:sticky md:top-0 self-start flex flex-col md:max-h-[calc(100dvh-7rem)] print:static print:max-h-none space-y-6 pt-6 md:pt-8 md:pb-4">
+                  <div className="flex items-center justify-between gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -591,10 +591,10 @@ export default function RecipeModal({
                   )}
 
                   <div
-                    className={`transition-all duration-300 overflow-hidden ${
+                    className={`transition-all duration-300 overflow-hidden md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2 print:overflow-visible print:max-h-none ${
                       isIngredientsCollapsed
                         ? "max-h-0 opacity-0 md:max-h-none md:opacity-100"
-                        : "max-h-[4000px] opacity-100"
+                        : "max-h-[4000px] opacity-100 md:max-h-none"
                     }`}
                   >
                     {(() => {
@@ -608,7 +608,7 @@ export default function RecipeModal({
                           <li
                             key={originalIdx}
                             onClick={() => toggleIngredientComplete(originalIdx)}
-                            className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 -mx-2 px-2 rounded-lg transition-colors"
+                            className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <span
