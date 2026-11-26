@@ -1,35 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="emeraldBg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="50%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#047857" />
-    </linearGradient>
-    <linearGradient id="subtleGlow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18" />
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
-    </linearGradient>
-    <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#064e3b" flood-opacity="0.3" />
-    </filter>
-  </defs>
-
-  <!-- Squircle rounded background -->
-  <rect width="512" height="512" rx="112" fill="url(#emeraldBg)" />
-  <rect width="512" height="256" rx="112" fill="url(#subtleGlow)" />
-
-  <!-- Center Card Badge (warm cream #FDFBF7, matching app) -->
-  <g filter="url(#cardShadow)">
-    <circle cx="256" cy="256" r="168" fill="#FDFBF7" />
-    <circle cx="256" cy="256" r="156" fill="none" stroke="#d1fae5" stroke-width="3" stroke-opacity="0.9" />
-  </g>
-
-  <!-- Lucide UtensilsCrossed (exact vectors from app header) rendered in primary emerald #059669 -->
-  <g transform="translate(256, 256) scale(9.5) translate(-12, -12)" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"></path>
-    <path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7"></path>
-    <path d="m2.1 21.8 6.4-6.3"></path>
-    <path d="m19 5-7 7"></path>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <style>
+    .bowl { stroke: #231A14; }
+    .steam { stroke: #C87A28; }
+    @media (prefers-color-scheme: dark) {
+      .bowl { stroke: #F7F1E8; }
+      .steam { stroke: #E8A44E; }
+    }
+  </style>
+  <path class="steam" d="M24.5 23.5 C23 19.5, 26 16, 24.5 12" stroke-width="3.6" stroke-linecap="round" />
+  <path class="steam" d="M39.5 23.5 C38 19.5, 41 16, 39.5 12" stroke-width="3.6" stroke-linecap="round" />
+  <path class="steam" d="M32 21 C30.5 17, 33.5 13.5, 32 9" stroke-width="3.6" stroke-linecap="round" opacity="0.7" />
+  <path class="bowl" d="M9 30.5 H55 C55 43.2, 44.8 52, 32 52 C19.2 52, 9 43.2, 9 30.5 Z" stroke-width="3.8" stroke-linejoin="round" />
+  <path class="bowl" d="M22 56.5 H42" stroke-width="3.2" stroke-linecap="round" opacity="0.55" />
 </svg>

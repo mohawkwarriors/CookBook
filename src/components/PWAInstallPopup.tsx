@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
-import { UtensilsCrossed, X, Share, PlusSquare, Smartphone, Check } from 'lucide-react';
+import { X, Share, PlusSquare, Smartphone, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import CookbookLogo from './CookbookLogo';
 
 const STORAGE_KEY = 'cookbook_install_prompt_resolved';
 
@@ -103,9 +104,8 @@ export const PWAInstallPopup: React.FC = () => {
 
           {!showIOSSteps ? (
             <div className="flex flex-col items-center text-center">
-              <div className="w-14 h-14 rounded-2xl bg-foreground text-background mb-4 flex items-center justify-center relative">
-                <UtensilsCrossed className="w-6 h-6" />
-                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary border-2 border-card" />
+              <div className="w-14 h-14 rounded-2xl bg-[#2A231E] text-[#F7F1E8] border border-white/10 shadow-sm mb-4 p-2.5 flex items-center justify-center">
+                <CookbookLogo className="w-full h-full" />
               </div>
 
               <h3 id="install-modal-title" className="text-lg font-semibold text-foreground tracking-tight">

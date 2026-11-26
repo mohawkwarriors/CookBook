@@ -18,6 +18,7 @@ import RecipeFormModal from "./components/RecipeFormModal";
 import MealPlanner from "./components/MealPlanner";
 import RecipeBuilderGame from "./components/RecipeBuilderGame";
 import CollectionPickerModal from "./components/CollectionPickerModal";
+import CookbookLogo from "./components/CookbookLogo";
 import { PWAInstallPopup } from "./components/PWAInstallPopup";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { APP_VERSION, BUILD_DATE, BUILD_ID } from "./version";
@@ -751,8 +752,8 @@ export default function App() {
               : "Cookbook — Home (Double-click to sign in)"
           }
         >
-          <span className="w-8 h-8 rounded-full bg-primary/15 border border-primary/40 text-primary-dark flex items-center justify-center shrink-0">
-            <span className="font-serif italic text-base font-bold leading-none">C</span>
+          <span className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/35 text-foreground p-1.5 flex items-center justify-center shrink-0 transition-transform group-hover:scale-[1.03]">
+            <CookbookLogo className="w-full h-full" />
           </span>
           <div className="flex flex-col">
             <span className="font-serif text-[22px] font-semibold tracking-[-0.01em] text-foreground leading-none">
