@@ -127,9 +127,11 @@ export default function RecipeModal({
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
   const [isIngredientsCollapsed, setIsIngredientsCollapsed] = useState(false);
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
+  const [ingScrollFade, setIngScrollFade] = useState({ top: false, bottom: false });
   const bodyRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const ingredientsScrollRef = useRef<HTMLDivElement>(null);
   const lastScrollY = useRef(0);
 
   const parsedMethod = useMemo(
@@ -145,6 +147,26 @@ export default function RecipeModal({
       ),
     [recipe?.ingredients, parsedMethod.chapters]
   );
+
+  const scrollIngredientsToGroup = (chapterTitle: string) => {
+    if (!parsedIngredients.isGrouped || window.innerWidth < 768) return;
+    const scrollEl = ingredientsScrollRef.current;
+    if (!scrollEl || scrollEl.scrollHeight <= scrollEl.clientHeight + 2) return;
+
+    const normalized = chapterTitle.trim().toLowerCase();
+    const matchingGroup = parsedIngredients.groups.find(
+      (g) => g.title.trim().toLowerCase() === normalized
+    );
+    if (!matchingGroup) return;
+
+    const target = scrollEl.querySelector<HTMLElement>(
+      `[data-ing-group-id="${matchingGroup.id}"]`
+    );
+    if (!target) return;
+
+    const targetTop = target.offsetTop - 8;
+    scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+  };
 
   const toggleStepComplete = (stepIdx: number) => {
     setCompletedSteps((prev) => {
@@ -164,11 +186,16 @@ export default function RecipeModal({
     });
   };
 
-  const toggleChapterCollapsed = (chapterId: string) => {
+  const toggleChapterCollapsed = (chapterId: string, chapterTitle: string) => {
     setCollapsedChapters((prev) => {
       const next = new Set(prev);
-      if (next.has(chapterId)) next.delete(chapterId);
-      else next.add(chapterId);
+      const willExpand = next.has(chapterId);
+      if (willExpand) {
+        next.delete(chapterId);
+        scrollIngredientsToGroup(chapterTitle);
+      } else {
+        next.add(chapterId);
+      }
       return next;
     });
   };
@@ -189,6 +216,9 @@ export default function RecipeModal({
       setHasAutoCollapsed(false);
       if (bodyRef.current) {
         bodyRef.current.scrollTop = 0;
+      }
+      if (ingredientsScrollRef.current) {
+        ingredientsScrollRef.current.scrollTop = 0;
       }
     }
   }, [recipe, isOpen]);
@@ -214,6 +244,39 @@ export default function RecipeModal({
       }
     };
   }, [isOpen, recipe?.id]);
+
+  // Track overflow fades on the desktop Ingredients scroll pane
+  useEffect(() => {
+    if (!isOpen || !recipe) return;
+    const el = ingredientsScrollRef.current;
+    if (!el) return;
+
+    const updateFade = () => {
+      const hasOverflow = el.scrollHeight > el.clientHeight + 4;
+      const top = hasOverflow && el.scrollTop > 4;
+      const bottom =
+        hasOverflow && el.scrollTop + el.clientHeight < el.scrollHeight - 4;
+      setIngScrollFade((prev) =>
+        prev.top === top && prev.bottom === bottom ? prev : { top, bottom }
+      );
+    };
+
+    const raf = requestAnimationFrame(updateFade);
+    el.addEventListener("scroll", updateFade, { passive: true });
+    window.addEventListener("resize", updateFade);
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(updateFade);
+      ro.observe(el);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", updateFade);
+      window.removeEventListener("resize", updateFade);
+      if (ro) ro.disconnect();
+    };
+  }, [isOpen, recipe, parsedIngredients.isGrouped]);
 
   // Trap Tab focus inside dialog and close on Escape when Cooking Mode is not open
   useEffect(() => {
@@ -541,33 +604,69 @@ export default function RecipeModal({
                     )}
                   </div>
 
-                  {/* Editorial Key Specs Strip */}
-                  <div className="grid grid-cols-3 gap-4 py-5 border-y border-border max-w-md">
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Total Time
-                      </p>
-                      <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                        {formatTime(recipe.cookingTime)}
-                      </p>
+                  {/* Editorial Key Specs & Nutrition Strip */}
+                  <div className="border-y border-border max-w-md divide-y divide-border/70">
+                    <div className="grid grid-cols-3 gap-4 py-5">
+                      <div>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Total Time
+                        </p>
+                        <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                          {formatTime(recipe.cookingTime)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Yield
+                        </p>
+                        <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums">
+                          {servings} {servings === 1 ? "serving" : "servings"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                          Ingredients
+                        </p>
+                        <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums">
+                          {recipe.ingredients.length} items
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Yield
-                      </p>
-                      <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums">
-                        {servings} {servings === 1 ? "serving" : "servings"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Ingredients
-                      </p>
-                      <p className="mt-1 text-sm sm:text-base font-semibold text-foreground tabular-nums">
-                        {recipe.ingredients.length} items
-                      </p>
-                    </div>
+
+                    {recipe.nutrition && (
+                      <div className="py-4 print:hidden">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-2.5">
+                          Nutrition · Per Serving
+                        </p>
+                        <div className="grid grid-cols-4 gap-3">
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.calories}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">kcal</p>
+                          </div>
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.protein}g
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Protein</p>
+                          </div>
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.carbs}g
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Carbs</p>
+                          </div>
+                          <div>
+                            <p className="text-sm sm:text-[15px] font-semibold tabular-nums text-foreground">
+                              {recipe.nutrition.fat}g
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">Fat</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Primary Action Row */}
@@ -595,10 +694,10 @@ export default function RecipeModal({
                 </div>
               </section>
 
-              {/* Core Two-Column Layout: Sticky Ingredients + Instructions */}
+              {/* Core Two-Column Layout: Fixed/Sticky Ingredients + Instructions */}
               <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-12 pt-2 border-t border-border">
-                {/* Left Column: Ingredients + Scaler + Nutrition */}
-                <div className="md:col-span-5 lg:col-span-4 md:sticky md:top-0 self-start flex flex-col md:max-h-[calc(100dvh-7rem)] print:static print:max-h-none space-y-6 pt-6 md:pt-8 md:pb-4">
+                {/* Left Column: Dedicated Ingredients + Scaler */}
+                <div className="md:col-span-5 lg:col-span-4 md:sticky md:top-0 self-start flex flex-col md:max-h-[calc(100dvh-7rem)] print:static print:max-h-none space-y-5 pt-6 md:pt-8 md:pb-4">
                   <div className="flex items-center justify-between gap-2 shrink-0">
                     <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
                       <button
@@ -645,128 +744,117 @@ export default function RecipeModal({
                   </div>
 
                   {isIngredientsCollapsed && (
-                    <p className="text-xs text-muted-foreground md:hidden -mt-3">
+                    <p className="text-xs text-muted-foreground md:hidden -mt-2">
                       {recipe.ingredients.length} ingredients · {completedIngredients.size} checked
                     </p>
                   )}
 
-                  <div
-                    className={`transition-all duration-300 overflow-hidden md:flex-1 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:pr-2 print:overflow-visible print:max-h-none ${
-                      isIngredientsCollapsed
-                        ? "max-h-0 opacity-0 md:max-h-none md:opacity-100"
-                        : "max-h-[4000px] opacity-100 md:max-h-none"
-                    }`}
-                  >
-                    {(() => {
-                      const renderIngredientRow = (
-                        ing: Recipe["ingredients"][number],
-                        originalIdx: number,
-                        displayName: string
-                      ) => {
-                        const isCompleted = completedIngredients.has(originalIdx);
-                        return (
-                          <li
-                            key={originalIdx}
-                            onClick={() => toggleIngredientComplete(originalIdx)}
-                            className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span
-                                className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
-                                  isCompleted
-                                    ? "bg-primary border-primary text-primary-foreground"
-                                    : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
-                                }`}
-                              >
-                                {isCompleted && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
-                              </span>
-                              <span
-                                className={`text-sm leading-snug transition-colors ${
-                                  isCompleted
-                                    ? "line-through text-muted-foreground/60"
-                                    : "text-foreground"
-                                }`}
-                              >
-                                {formatIngredientName(displayName)}
-                              </span>
-                            </div>
-                            <span
-                              className={`font-mono text-xs tabular-nums text-right shrink-0 ${
-                                isCompleted ? "text-muted-foreground/50" : "text-muted-foreground"
-                              }`}
+                  <div className="relative md:flex-1 md:min-h-0 flex flex-col">
+                    {/* Top overflow fade cue (desktop only, when scrolled down) */}
+                    <div
+                      aria-hidden="true"
+                      className={`hidden md:block pointer-events-none absolute top-0 left-0 right-1.5 h-6 z-10 bg-gradient-to-b from-background to-transparent transition-opacity duration-200 print:hidden ${
+                        ingScrollFade.top ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+
+                    <div
+                      ref={ingredientsScrollRef}
+                      className={`transition-all duration-300 overflow-hidden md:flex-1 md:min-h-0 md:overflow-y-auto cookbook-scroll md:pr-2 print:overflow-visible print:max-h-none ${
+                        isIngredientsCollapsed
+                          ? "max-h-0 opacity-0 md:max-h-none md:opacity-100"
+                          : "max-h-[4000px] opacity-100 md:max-h-none"
+                      } ${ingScrollFade.bottom ? "md:pb-7" : ""}`}
+                    >
+                      {(() => {
+                        const renderIngredientRow = (
+                          ing: Recipe["ingredients"][number],
+                          originalIdx: number,
+                          displayName: string
+                        ) => {
+                          const isCompleted = completedIngredients.has(originalIdx);
+                          return (
+                            <li
+                              key={originalIdx}
+                              onClick={() => toggleIngredientComplete(originalIdx)}
+                              className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors"
                             >
-                              {formatAmount(ing.amount)} {ing.unit}
-                            </span>
-                          </li>
-                        );
-                      };
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span
+                                  className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                    isCompleted
+                                      ? "bg-primary border-primary text-primary-foreground"
+                                      : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
+                                  }`}
+                                >
+                                  {isCompleted && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
+                                </span>
+                                <span
+                                  className={`text-sm leading-snug transition-colors ${
+                                    isCompleted
+                                      ? "line-through text-muted-foreground/60"
+                                      : "text-foreground"
+                                  }`}
+                                >
+                                  {formatIngredientName(displayName)}
+                                </span>
+                              </div>
+                              <span
+                                className={`font-mono text-xs tabular-nums text-right shrink-0 ${
+                                  isCompleted ? "text-muted-foreground/50" : "text-muted-foreground"
+                                }`}
+                              >
+                                {formatAmount(ing.amount)} {ing.unit}
+                              </span>
+                            </li>
+                          );
+                        };
 
-                      if (!parsedIngredients.isGrouped) {
+                        if (!parsedIngredients.isGrouped) {
+                          return (
+                            <ul className="divide-y divide-border/70 border-y border-border/70">
+                              {recipe.ingredients.map((ing, idx) =>
+                                renderIngredientRow(ing, idx, ing.name)
+                              )}
+                            </ul>
+                          );
+                        }
+
                         return (
-                          <ul className="divide-y divide-border/70 border-y border-border/70">
-                            {recipe.ingredients.map((ing, idx) =>
-                              renderIngredientRow(ing, idx, ing.name)
-                            )}
-                          </ul>
+                          <div className="space-y-5">
+                            {parsedIngredients.groups.map((group) => (
+                              <div key={group.id} data-ing-group-id={group.id}>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
+                                  {group.title}
+                                </p>
+                                <ul className="divide-y divide-border/70 border-y border-border/70">
+                                  {group.items.map((item) =>
+                                    renderIngredientRow(
+                                      item.ingredient,
+                                      item.originalIdx,
+                                      item.displayName
+                                    )
+                                  )}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
                         );
-                      }
+                      })()}
+                    </div>
 
-                      return (
-                        <div className="space-y-5">
-                          {parsedIngredients.groups.map((group) => (
-                            <div key={group.id}>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
-                                {group.title}
-                              </p>
-                              <ul className="divide-y divide-border/70 border-y border-border/70">
-                                {group.items.map((item) =>
-                                  renderIngredientRow(
-                                    item.ingredient,
-                                    item.originalIdx,
-                                    item.displayName
-                                  )
-                                )}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Nutrition Summary (if present) */}
-                    {recipe.nutrition && (
-                      <div className="mt-6 rounded-2xl border border-border bg-secondary/40 p-4 print:hidden">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-                          Nutrition · Per Serving
-                        </p>
-                        <div className="grid grid-cols-4 gap-2 text-center">
-                          <div>
-                            <p className="text-base font-semibold tabular-nums text-foreground">
-                              {recipe.nutrition.calories}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">kcal</p>
-                          </div>
-                          <div>
-                            <p className="text-base font-semibold tabular-nums text-foreground">
-                              {recipe.nutrition.protein}g
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">Protein</p>
-                          </div>
-                          <div>
-                            <p className="text-base font-semibold tabular-nums text-foreground">
-                              {recipe.nutrition.carbs}g
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">Carbs</p>
-                          </div>
-                          <div>
-                            <p className="text-base font-semibold tabular-nums text-foreground">
-                              {recipe.nutrition.fat}g
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">Fat</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {/* Bottom overflow fade cue (desktop only, when more ingredients exist below) */}
+                    <div
+                      aria-hidden="true"
+                      className={`hidden md:flex pointer-events-none absolute bottom-0 left-0 right-1.5 h-10 z-10 items-end justify-center bg-gradient-to-t from-background via-background/80 to-transparent transition-opacity duration-200 print:hidden ${
+                        ingScrollFade.bottom ? "opacity-100" : "opacity-0"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-border/80 bg-card/90 text-[10px] font-medium text-muted-foreground shadow-xs">
+                        <span>More ingredients</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -892,7 +980,7 @@ export default function RecipeModal({
                                 <button
                                   type="button"
                                   aria-expanded={!isCollapsed}
-                                  onClick={() => toggleChapterCollapsed(chapter.id)}
+                                  onClick={() => toggleChapterCollapsed(chapter.id, chapter.title)}
                                   className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-secondary/50 transition-colors cursor-pointer"
                                 >
                                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 min-w-0">

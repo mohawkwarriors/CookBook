@@ -163,6 +163,24 @@ body {
   scrollbar-width: none;
 }
 
+.cookbook-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.cookbook-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.cookbook-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cookbook-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
+.cookbook-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
 /* Clean modern gradient surfaces for photo-less recipe covers */
 .recipe-cover-surface {
   background: var(--ri-light-base);
