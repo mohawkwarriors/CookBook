@@ -36,7 +36,48 @@ const CUISINES = [
   "Asian", "Thai", "Mediterranean", "French", "Japanese", "Caribbean", "Other"
 ];
 
+const VALID_RECIPE_CUISINES = CUISINES.filter((c) => c !== "All");
+
 const MEAL_TYPES = ["All", "Starter", "Main", "Side", "Drink", "Dessert", "Snack"] as const;
+type ValidMealType = Exclude<(typeof MEAL_TYPES)[number], "All">;
+const VALID_RECIPE_MEAL_TYPES: readonly ValidMealType[] = [
+  "Starter",
+  "Main",
+  "Side",
+  "Drink",
+  "Dessert",
+  "Snack",
+];
+
+function normalizeMealType(raw?: string): ValidMealType {
+  if (!raw) return "Main";
+  if (raw.toLowerCase() === "appetizer") return "Starter";
+  const match = VALID_RECIPE_MEAL_TYPES.find((t) => t.toLowerCase() === raw.toLowerCase());
+  return match || "Main";
+}
+
+function sanitizeHttpUrl(raw?: string): string {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    // invalid URL
+  }
+  return "";
+}
+
+function sanitizeImageOrDataUrl(raw?: string): string {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return "";
+  if (/^data:image\/(?:png|jpeg|jpg|webp|gif|avif);base64,[a-zA-Z0-9+/=\s]+$/i.test(trimmed)) {
+    return trimmed;
+  }
+  return sanitizeHttpUrl(trimmed);
+}
 
 const COOK_TIME_PRESETS = [
   { label: "15m", mins: 15 },
@@ -57,6 +98,7 @@ export default function RecipeFormModal({
 }: RecipeFormModalProps) {
   const [activeTab, setActiveTab] = useState<"search" | "scraper" | "manual">("search");
   const [url, setUrl] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
 
@@ -73,7 +115,7 @@ export default function RecipeFormModal({
   const cookingTime = parsedHours * 60 + parsedMinutes;
 
   const setCookingTime = (totalMins: number | undefined | null) => {
-    const safeTotal = Math.max(0, Math.round(totalMins || 0));
+    const safeTotal = Math.min(5999, Math.max(0, Math.round(totalMins || 0)));
     const hrs = Math.floor(safeTotal / 60);
     const mins = safeTotal % 60;
     setCookHours(hrs > 0 ? String(hrs) : "");
@@ -84,7 +126,7 @@ export default function RecipeFormModal({
     if (parsedMinutes >= 60) {
       const extraHours = Math.floor(parsedMinutes / 60);
       const remMins = parsedMinutes % 60;
-      const nextHours = parsedHours + extraHours;
+      const nextHours = Math.min(99, parsedHours + extraHours);
       setCookHours(nextHours > 0 ? String(nextHours) : "");
       setCookMinutes(remMins > 0 ? String(remMins) : "");
     }
@@ -106,9 +148,15 @@ export default function RecipeFormModal({
   const [ingredients, setIngredients] = useState<Ingredient[]>([{ name: "", amount: 1, unit: "" }]);
   const [instructions, setInstructions] = useState<string[]>([""]);
   const [imageUrl, setImageUrl] = useState("");
+  const [coverPreviewError, setCoverPreviewError] = useState(false);
   const [notes, setNotes] = useState("");
+  const [nutrition, setNutrition] = useState<Recipe["nutrition"]>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCoverPreviewError(false);
+  }, [imageUrl]);
 
   // Photo upload & stand-in suggestions state
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -120,6 +168,34 @@ export default function RecipeFormModal({
   const [failedStandIns, setFailedStandIns] = useState<Set<string>>(new Set());
   const [fallbackStandIns, setFallbackStandIns] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const scrapeAbortRef = useRef<AbortController | null>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const pendingFocusTitleRef = useRef(false);
+
+  const cancelInFlightScrape = () => {
+    if (scrapeAbortRef.current) {
+      scrapeAbortRef.current.abort();
+      scrapeAbortRef.current = null;
+    }
+    setIsScraping(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      scrapeAbortRef.current?.abort();
+      scrapeAbortRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "manual" && pendingFocusTitleRef.current) {
+      pendingFocusTitleRef.current = false;
+      const timer = setTimeout(() => {
+        titleInputRef.current?.focus();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
 
   const loadStandInPhotos = async (
     queryText: string,
@@ -142,13 +218,16 @@ export default function RecipeFormModal({
   };
 
   useEffect(() => {
+    cancelInFlightScrape();
     if (editingRecipe) {
       setTitle(editingRecipe.title || "");
       setDescription(editingRecipe.description || "");
-      setCuisine(editingRecipe.cuisine || "Other");
-      setMealType((editingRecipe.mealType as any) || "Main");
+      setCuisine(
+        VALID_RECIPE_CUISINES.includes(editingRecipe.cuisine) ? editingRecipe.cuisine : "Other"
+      );
+      setMealType(normalizeMealType(editingRecipe.mealType));
       setCookingTime(editingRecipe.cookingTime || 30);
-      setServings(editingRecipe.servings || 4);
+      setServings(Math.max(1, Math.round(editingRecipe.servings || 4)));
       setIngredients(
         editingRecipe.ingredients && editingRecipe.ingredients.length > 0
           ? editingRecipe.ingredients
@@ -161,6 +240,8 @@ export default function RecipeFormModal({
       );
       setImageUrl(editingRecipe.imageUrl || "");
       setNotes(editingRecipe.notes || "");
+      setSourceUrl(sanitizeHttpUrl(editingRecipe.sourceUrl));
+      setNutrition(editingRecipe.nutrition);
       setStandInQuery(editingRecipe.title || "");
       setStandInPhotos([]);
       setStandInDiagnostic(null);
@@ -183,6 +264,8 @@ export default function RecipeFormModal({
       setImageUrl("");
       setNotes("");
       setUrl("");
+      setSourceUrl("");
+      setNutrition(undefined);
       setStandInQuery("");
       setStandInPhotos([]);
       setStandInDiagnostic(null);
@@ -212,12 +295,15 @@ export default function RecipeFormModal({
   };
 
   const handleSelectTopRecipe = (topRecipe: TopRatedRecipe) => {
+    cancelInFlightScrape();
     setTitle(topRecipe.title || "");
     setDescription(topRecipe.description || "");
-    setCuisine(CUISINES.includes(topRecipe.cuisine) ? topRecipe.cuisine : "Other");
-    setMealType(topRecipe.mealType || "Main");
+    setCuisine(
+      VALID_RECIPE_CUISINES.includes(topRecipe.cuisine) ? topRecipe.cuisine : "Other"
+    );
+    setMealType(normalizeMealType(topRecipe.mealType));
     setCookingTime(topRecipe.cookingTime || 30);
-    setServings(topRecipe.servings || 4);
+    setServings(Math.max(1, Math.round(topRecipe.servings || 4)));
     setIngredients(
       topRecipe.ingredients && topRecipe.ingredients.length > 0
         ? topRecipe.ingredients
@@ -242,7 +328,10 @@ export default function RecipeFormModal({
     }
     setNotes(combinedNotes);
     setImageUrl(topRecipe.imageUrl || "");
-    setUrl(topRecipe.sourceUrl || "");
+    const safeTopSource = sanitizeHttpUrl(topRecipe.sourceUrl);
+    setSourceUrl(safeTopSource);
+    setNutrition(topRecipe.nutrition);
+    setStandInQuery(topRecipe.title || "");
     setActiveTab("manual");
   };
 
@@ -263,7 +352,7 @@ export default function RecipeFormModal({
       topRecipe.ingredients && topRecipe.ingredients.length > 0
         ? topRecipe.ingredients.map((i) => ({
             name: i.name || "Ingredient",
-            amount: typeof i.amount === "number" ? i.amount : 0,
+            amount: Number.isFinite(i.amount) && i.amount >= 0 ? i.amount : 0,
             unit: i.unit || "",
           }))
         : [{ name: "Main ingredient", amount: 1, unit: "serving" }];
@@ -271,17 +360,17 @@ export default function RecipeFormModal({
     const recipeToSave: any = {
       title: topRecipe.title,
       description: topRecipe.description || "",
-      cuisine: CUISINES.includes(topRecipe.cuisine) ? topRecipe.cuisine : "Other",
-      mealType: topRecipe.mealType || "Main",
+      cuisine: VALID_RECIPE_CUISINES.includes(topRecipe.cuisine) ? topRecipe.cuisine : "Other",
+      mealType: normalizeMealType(topRecipe.mealType),
       cookingTime: topRecipe.cookingTime || 30,
-      servings: topRecipe.servings || 4,
+      servings: Math.max(1, Math.round(topRecipe.servings || 4)),
       ingredients: safeIngredients,
       instructions:
         topRecipe.instructions && topRecipe.instructions.length > 0
           ? topRecipe.instructions
           : ["Follow chef instructions."],
       imageUrl: topRecipe.imageUrl || "",
-      sourceUrl: topRecipe.sourceUrl || "",
+      sourceUrl: sanitizeHttpUrl(topRecipe.sourceUrl),
       notes: combinedNotes || "",
     };
 
@@ -298,7 +387,19 @@ export default function RecipeFormModal({
   };
 
   const handleScrape = async () => {
-    if (!url.trim()) return;
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setScrapeError("Please enter a recipe URL.");
+      return;
+    }
+
+    const normalizedInput = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)
+      ? trimmed
+      : `https://${trimmed}`;
+
+    cancelInFlightScrape();
+    const controller = new AbortController();
+    scrapeAbortRef.current = controller;
     setIsScraping(true);
     setScrapeError(null);
 
@@ -306,8 +407,11 @@ export default function RecipeFormModal({
       const response = await fetch("/api/parse-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: normalizedInput }),
+        signal: controller.signal,
       });
+
+      if (controller.signal.aborted) return;
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -315,31 +419,75 @@ export default function RecipeFormModal({
       }
 
       const parsed: Recipe = await response.json();
+      if (controller.signal.aborted) return;
+
+      const parsedIngredients =
+        Array.isArray(parsed.ingredients) && parsed.ingredients.length > 0
+          ? parsed.ingredients.map((ing) => ({
+              name: String(ing?.name || ""),
+              amount: Number.isFinite(ing?.amount) && ing.amount >= 0 ? ing.amount : 0,
+              unit: String(ing?.unit || ""),
+            }))
+          : [{ name: "", amount: 1, unit: "" }];
+
+      const parsedInstructions =
+        Array.isArray(parsed.instructions) && parsed.instructions.length > 0
+          ? parsed.instructions.map((s) => String(s || "")).filter(Boolean)
+          : [""];
 
       setTitle(parsed.title || "");
       setDescription(parsed.description || "");
-      setCuisine(CUISINES.includes(parsed.cuisine) ? parsed.cuisine : "Other");
-      setMealType(parsed.mealType || "Main");
+      setCuisine(
+        VALID_RECIPE_CUISINES.includes(parsed.cuisine) ? parsed.cuisine : "Other"
+      );
+      setMealType(normalizeMealType(parsed.mealType));
       setCookingTime(parsed.cookingTime || 30);
-      setServings(parsed.servings || 4);
-      setIngredients(
-        parsed.ingredients && parsed.ingredients.length > 0
-          ? parsed.ingredients
-          : [{ name: "", amount: 1, unit: "" }]
-      );
-      setInstructions(
-        parsed.instructions && parsed.instructions.length > 0
-          ? parsed.instructions
-          : [""]
-      );
+      setServings(Math.max(1, Math.round(parsed.servings || 4)));
+      setIngredients(parsedIngredients);
+      setInstructions(parsedInstructions.length > 0 ? parsedInstructions : [""]);
       setNotes(parsed.notes || "");
-      setImageUrl(parsed.imageUrl || "");
+      setImageUrl(sanitizeHttpUrl(parsed.imageUrl));
+      setSourceUrl(sanitizeHttpUrl(parsed.sourceUrl || normalizedInput));
+      setNutrition(
+        parsed.nutrition &&
+          typeof parsed.nutrition === "object" &&
+          Number.isFinite(parsed.nutrition.calories) &&
+          Number.isFinite(parsed.nutrition.protein) &&
+          Number.isFinite(parsed.nutrition.carbs) &&
+          Number.isFinite(parsed.nutrition.fat)
+          ? {
+              calories: Math.max(0, Math.round(parsed.nutrition.calories)),
+              protein: Math.max(0, Math.round(parsed.nutrition.protein)),
+              carbs: Math.max(0, Math.round(parsed.nutrition.carbs)),
+              fat: Math.max(0, Math.round(parsed.nutrition.fat)),
+            }
+          : undefined
+      );
+      setStandInQuery(parsed.title || "");
+      setStandInPhotos([]);
+      setStandInDiagnostic(null);
+      setImageError(null);
+      setFormError(null);
+      pendingFocusTitleRef.current = true;
       setActiveTab("manual");
     } catch (err: any) {
+      if (controller.signal.aborted || err?.name === "AbortError") {
+        return;
+      }
       console.error("Scraping error:", err);
-      setScrapeError(err.message || "Could not read recipe. You can enter details manually.");
+      const rawMsg = typeof err?.message === "string" ? err.message : "";
+      const isNetworkErr =
+        err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(rawMsg);
+      setScrapeError(
+        isNetworkErr
+          ? "Network error while importing recipe. Check your connection and try again."
+          : rawMsg || "Could not read recipe. You can enter details manually."
+      );
     } finally {
-      setIsScraping(false);
+      if (scrapeAbortRef.current === controller) {
+        scrapeAbortRef.current = null;
+        setIsScraping(false);
+      }
     }
   };
 
@@ -371,7 +519,7 @@ export default function RecipeFormModal({
       .filter((i) => i.name && i.name.trim() !== "")
       .map((i) => ({
         name: i.name.trim(),
-        amount: typeof i.amount === "number" ? i.amount : 0,
+        amount: Number.isFinite(i.amount) && i.amount >= 0 ? i.amount : 0,
         unit: i.unit ? i.unit.trim() : "",
       }));
 
@@ -398,16 +546,20 @@ export default function RecipeFormModal({
       const recipeToSave: any = {
         title: title.trim(),
         description: description ? description.trim() : "",
-        cuisine: cuisine || "Other",
-        mealType: mealType && mealType !== "All" ? mealType : "Main",
-        cookingTime: typeof cookingTime === "number" ? cookingTime : 30,
-        servings: typeof servings === "number" ? servings : 4,
+        cuisine: VALID_RECIPE_CUISINES.includes(cuisine) ? cuisine : "Other",
+        mealType: normalizeMealType(mealType),
+        cookingTime: typeof cookingTime === "number" ? Math.min(5999, Math.max(1, Math.round(cookingTime))) : 30,
+        servings: typeof servings === "number" ? Math.max(1, Math.round(servings)) : 4,
         ingredients: filteredIngredients,
         instructions: filteredInstructions,
-        imageUrl: imageUrl ? imageUrl.trim() : "",
-        sourceUrl: url ? url.trim() : "",
+        imageUrl: sanitizeImageOrDataUrl(imageUrl),
+        sourceUrl: sanitizeHttpUrl(sourceUrl),
         notes: notes ? notes.trim() : "",
       };
+
+      if (nutrition) {
+        recipeToSave.nutrition = nutrition;
+      }
 
       await onSave(recipeToSave);
       onClose();
@@ -461,7 +613,11 @@ export default function RecipeFormModal({
       {/* Mode Switcher */}
       {!editingRecipe && (
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5">
-          <div className="inline-flex items-center p-1 rounded-full bg-secondary border border-border/60 w-full sm:w-auto">
+          <div
+            role="tablist"
+            aria-label="Add recipe method"
+            className="inline-flex items-center p-1 rounded-full bg-secondary border border-border/60 w-full sm:w-auto"
+          >
             {[
               { id: "search", label: "Discover", Icon: Search },
               { id: "scraper", label: "Import URL", Icon: Link2 },
@@ -473,8 +629,15 @@ export default function RecipeFormModal({
                   key={id}
                   id={`tab-${id}`}
                   type="button"
-                  onClick={() => setActiveTab(id as any)}
-                  className={`flex-1 sm:flex-initial h-9 px-4 rounded-full text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls={`panel-${id}`}
+                  onClick={() => {
+                    if (id === activeTab) return;
+                    cancelInFlightScrape();
+                    setActiveTab(id as any);
+                  }}
+                  className={`flex-1 sm:flex-initial min-h-11 sm:min-h-0 sm:h-9 px-2.5 sm:px-4 rounded-full text-xs font-medium whitespace-nowrap flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                     active
                       ? "bg-foreground text-background shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
@@ -493,6 +656,9 @@ export default function RecipeFormModal({
       <AnimatePresence mode="wait">
         {activeTab === "search" && !editingRecipe ? (
           <motion.div
+            id="panel-search"
+            role="tabpanel"
+            aria-labelledby="tab-search"
             key="tab-search-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -506,6 +672,9 @@ export default function RecipeFormModal({
           </motion.div>
         ) : activeTab === "scraper" && !editingRecipe ? (
           <motion.div
+            id="panel-scraper"
+            role="tabpanel"
+            aria-labelledby="tab-scraper"
             key="tab-scraper-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -523,26 +692,37 @@ export default function RecipeFormModal({
             </div>
 
             <form
+              noValidate
               onSubmit={(e) => {
                 e.preventDefault();
                 handleScrape();
               }}
               className="flex flex-col sm:flex-row gap-2.5 pt-2"
             >
+              <label htmlFor="scraper-url-input" className="sr-only">
+                Recipe URL
+              </label>
               <input
                 id="scraper-url-input"
-                type="url"
-                required
+                type="text"
+                inputMode="url"
+                autoComplete="url"
                 placeholder="https://..."
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  setUrl(e.target.value);
+                  if (scrapeError) setScrapeError(null);
+                }}
                 disabled={isScraping}
-                className="w-full sm:flex-1 h-11 px-4 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm placeholder:text-muted-foreground"
+                aria-invalid={Boolean(scrapeError)}
+                aria-describedby={scrapeError ? "scraper-url-error" : undefined}
+                className="w-full sm:flex-1 h-11 px-4 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm placeholder:text-muted-foreground"
               />
               <button
                 id="draw-recipe-btn"
                 type="submit"
                 disabled={isScraping || !url.trim()}
+                aria-busy={isScraping}
                 className="w-full sm:w-auto h-11 px-6 bg-foreground text-background font-medium text-sm rounded-full hover:opacity-85 transition-opacity flex items-center justify-center gap-2 disabled:opacity-40 shrink-0 cursor-pointer"
               >
                 {isScraping ? (
@@ -560,7 +740,11 @@ export default function RecipeFormModal({
             </form>
 
             {scrapeError && (
-              <div className="p-3.5 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs rounded-2xl border border-red-200 dark:border-red-900/50 text-left">
+              <div
+                id="scraper-url-error"
+                role="alert"
+                className="p-3.5 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 text-xs rounded-2xl border border-red-200 dark:border-red-900/50 text-left"
+              >
                 {scrapeError}
               </div>
             )}
@@ -568,6 +752,8 @@ export default function RecipeFormModal({
         ) : (
           <motion.form
             id={formId}
+            role={!editingRecipe ? "tabpanel" : undefined}
+            aria-labelledby={!editingRecipe ? "tab-manual" : undefined}
             key="tab-manual-content"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
@@ -577,7 +763,10 @@ export default function RecipeFormModal({
             className="space-y-8 max-w-3xl"
           >
             {editingRecipe && formError && (
-              <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
+              <div
+                role="alert"
+                className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-700 dark:text-red-400 text-xs"
+              >
                 {formError}
               </div>
             )}
@@ -585,22 +774,29 @@ export default function RecipeFormModal({
             {/* Title, Description & Cover Image URL */}
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                  Recipe Title <span className="text-red-500">*</span>
+                <label
+                  htmlFor="recipe-title-input"
+                  className="text-xs font-medium text-muted-foreground mb-1.5 block"
+                >
+                  Recipe Title <span className="text-red-700 dark:text-red-400">*</span>
                 </label>
                 <input
+                  ref={titleInputRef}
                   id="recipe-title-input"
                   type="text"
                   required
                   placeholder="e.g. Black Pepper Chicken Club Sandwich"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm"
+                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm placeholder:text-muted-foreground"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                <label
+                  htmlFor="recipe-desc-textarea"
+                  className="text-xs font-medium text-muted-foreground mb-1.5 block"
+                >
                   Short Description
                 </label>
                 <textarea
@@ -609,7 +805,7 @@ export default function RecipeFormModal({
                   placeholder="What makes this dish great..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full min-h-[88px] px-4 py-2.5 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm leading-relaxed resize-y"
+                  className="w-full min-h-[88px] px-4 py-2.5 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm leading-relaxed resize-y placeholder:text-muted-foreground"
                 />
               </div>
 
@@ -787,9 +983,9 @@ export default function RecipeFormModal({
             <div className="space-y-4 pt-4 border-t border-border">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <label className="text-sm font-semibold text-foreground block">
+                  <span className="text-sm font-semibold text-foreground block">
                     Recipe Photo
-                  </label>
+                  </span>
                   <p className="text-xs text-muted-foreground">
                     Upload your own photo, or pick a stand-in photo from the web.
                   </p>
@@ -798,7 +994,7 @@ export default function RecipeFormModal({
                   <button
                     type="button"
                     onClick={() => setImageUrl("")}
-                    className="text-xs font-medium text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Remove photo</span>
@@ -810,11 +1006,12 @@ export default function RecipeFormModal({
                 {/* 4:5 Cover Preview */}
                 <div className="sm:col-span-4">
                   <div className="relative aspect-[4/5] w-40 sm:w-full max-w-[190px] rounded-xl overflow-hidden border border-border bg-muted">
-                    {imageUrl ? (
+                    {sanitizeImageOrDataUrl(imageUrl) && !coverPreviewError ? (
                       <img
-                        src={imageUrl}
+                        src={sanitizeImageOrDataUrl(imageUrl)}
                         alt={title || "Recipe preview"}
                         referrerPolicy="no-referrer"
+                        onError={() => setCoverPreviewError(true)}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -887,20 +1084,26 @@ export default function RecipeFormModal({
                   </div>
 
                   {imageError && (
-                    <p className="text-xs text-red-600 dark:text-red-400">{imageError}</p>
+                    <p role="alert" className="text-xs text-red-700 dark:text-red-400">
+                      {imageError}
+                    </p>
                   )}
 
                   {/* Optional Direct Image URL Input */}
                   <div>
-                    <label className="text-[11px] font-medium text-muted-foreground mb-1 block">
+                    <label
+                      htmlFor="recipe-image-url-input"
+                      className="text-[11px] font-medium text-muted-foreground mb-1 block"
+                    >
                       Or paste an image URL directly
                     </label>
                     <input
+                      id="recipe-image-url-input"
                       type="url"
                       placeholder="https://..."
                       value={imageUrl.startsWith("data:") ? "" : imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
-                      className="w-full h-9 px-3 bg-card text-foreground border border-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-ring/20 placeholder:text-muted-foreground"
+                      className="w-full h-9 px-3 bg-card text-foreground border border-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -919,6 +1122,7 @@ export default function RecipeFormModal({
                   <div className="flex items-center gap-1.5 w-full sm:w-auto">
                     <input
                       type="text"
+                      aria-label="Search stand-in photos"
                       value={standInQuery}
                       onChange={(e) => setStandInQuery(e.target.value)}
                       onKeyDown={(e) => {
@@ -928,7 +1132,7 @@ export default function RecipeFormModal({
                         }
                       }}
                       placeholder={title || "Search dish name..."}
-                      className="flex-1 sm:w-48 h-8 px-3 rounded-full bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                      className="flex-1 sm:w-48 h-8 px-3 rounded-full bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                     />
                     <button
                       type="button"
@@ -1024,16 +1228,17 @@ export default function RecipeFormModal({
             {/* Category & Cuisine Pills */}
             <div className="space-y-4 pt-2 border-t border-border">
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                <span className="text-xs font-medium text-muted-foreground block mb-2">
                   Meal Type
-                </label>
-                <div className="flex flex-wrap gap-1.5">
+                </span>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Meal Type">
                   {MEAL_TYPES.filter((t) => t !== "All").map((t) => {
                     const selected = mealType === t;
                     return (
                       <button
                         key={t}
                         type="button"
+                        aria-pressed={selected}
                         onClick={() => setMealType(t as any)}
                         className={`h-8 px-3.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${getMealTypeButtonColor(
                           t,
@@ -1048,14 +1253,15 @@ export default function RecipeFormModal({
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground block mb-2">
+                <span className="text-xs font-medium text-muted-foreground block mb-2">
                   Cuisine
-                </label>
-                <div className="flex flex-wrap gap-1.5">
+                </span>
+                <div className="flex flex-wrap gap-1.5" role="group" aria-label="Cuisine">
                   {CUISINES.filter((c) => c !== "All").map((c) => (
                     <button
                       key={c}
                       type="button"
+                      aria-pressed={cuisine === c}
                       onClick={() => setCuisine(c)}
                       className={`h-8 px-3.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                         cuisine === c
@@ -1092,35 +1298,38 @@ export default function RecipeFormModal({
                   <div key={index} className="flex flex-col sm:flex-row gap-2 sm:items-center">
                     <input
                       type="text"
+                      aria-label={`Ingredient ${index + 1} name`}
                       placeholder="Ingredient name (e.g. Chicken thighs)"
                       required
                       value={ingredient.name}
                       onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
-                      className="flex-1 h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                      className="w-full sm:flex-1 h-11 sm:h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                     />
                     <div className="flex gap-2 items-center">
                       <input
                         type="number"
+                        aria-label={`Ingredient ${index + 1} quantity`}
                         placeholder="Qty"
                         step="any"
                         min="0"
                         value={ingredient.amount === 0 ? "" : ingredient.amount}
                         onChange={(e) => handleIngredientChange(index, "amount", parseFloat(e.target.value) || 0)}
-                        className="w-20 h-10 px-2.5 bg-card text-foreground border border-border rounded-xl text-sm text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-ring/20"
+                        className="w-20 h-11 sm:h-10 px-2.5 bg-card text-foreground border border-border rounded-xl text-sm text-center tabular-nums placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                       />
                       <input
                         type="text"
+                        aria-label={`Ingredient ${index + 1} unit`}
                         placeholder="Unit"
                         value={ingredient.unit}
                         onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
-                        className="flex-1 sm:w-28 h-10 px-3 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                        className="flex-1 sm:w-28 h-11 sm:h-10 px-3 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                       />
                       <button
                         type="button"
                         onClick={() => handleRemoveIngredient(index)}
                         disabled={ingredients.length <= 1}
                         className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-secondary disabled:opacity-20 cursor-pointer shrink-0"
-                        aria-label="Remove ingredient"
+                        aria-label={`Remove ingredient ${index + 1}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1164,18 +1373,19 @@ export default function RecipeFormModal({
                     </span>
                     <textarea
                       rows={2}
+                      aria-label={`Step ${index + 1} instruction`}
                       placeholder={`Step ${index + 1}...`}
                       required
                       value={step}
                       onChange={(e) => handleInstructionChange(index, e.target.value)}
-                      className="flex-1 px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-y"
+                      className="flex-1 px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-y"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemoveInstruction(index)}
                       disabled={instructions.length <= 1}
                       className="w-9 h-9 mt-1 rounded-full flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-secondary disabled:opacity-20 cursor-pointer shrink-0"
-                      aria-label="Remove step"
+                      aria-label={`Remove step ${index + 1}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1195,7 +1405,10 @@ export default function RecipeFormModal({
 
             {/* Notes */}
             <div className="pt-4 border-t border-border">
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              <label
+                htmlFor="recipe-notes-textarea"
+                className="text-xs font-medium text-muted-foreground mb-1.5 block"
+              >
                 Notes &amp; Technique Tips (Optional)
               </label>
               <textarea
@@ -1204,12 +1417,15 @@ export default function RecipeFormModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="w-full px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-y"
+                className="w-full px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-y"
               />
             </div>
 
-            {formError && (
-              <div className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-600 dark:text-red-400 text-xs">
+            {formError && !editingRecipe && (
+              <div
+                role="alert"
+                className="p-3.5 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-xl text-red-700 dark:text-red-400 text-xs"
+              >
                 {formError}
               </div>
             )}

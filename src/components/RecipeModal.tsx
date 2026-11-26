@@ -128,6 +128,8 @@ export default function RecipeModal({
   const [isIngredientsCollapsed, setIsIngredientsCollapsed] = useState(false);
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const lastScrollY = useRef(0);
 
   const parsedMethod = useMemo(
@@ -191,11 +193,58 @@ export default function RecipeModal({
     }
   }, [recipe, isOpen]);
 
-  // Close on Escape when Cooking Mode is not open
+  // Move focus into dialog on open and restore to trigger element on close
+  useEffect(() => {
+    if (!isOpen || !recipe) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const timer = setTimeout(() => {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const firstFocusable = overlay.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (firstFocusable || overlay).focus();
+    }, 30);
+
+    return () => {
+      clearTimeout(timer);
+      const prev = previousFocusRef.current;
+      if (prev && typeof prev.focus === "function" && document.contains(prev)) {
+        prev.focus();
+      }
+    };
+  }, [isOpen, recipe?.id]);
+
+  // Trap Tab focus inside dialog and close on Escape when Cooking Mode is not open
   useEffect(() => {
     if (!isOpen || isCookingModeOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && overlayRef.current) {
+        const focusables = (
+          Array.from(
+            overlayRef.current.querySelectorAll(
+              'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          ) as HTMLElement[]
+        ).filter((el) => el.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (!active || active === first || !overlayRef.current.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (!active || active === last || !overlayRef.current.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -273,17 +322,22 @@ export default function RecipeModal({
     <AnimatePresence>
       {isOpen && recipe && (
         <motion.div
+          ref={overlayRef}
           key="recipe-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="recipe-modal-title"
+          tabIndex={-1}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           id="recipe-modal-overlay"
-          className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden print:bg-white"
+          className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden print:bg-white outline-none"
         >
           {/* Cook Well Sticky Top Breadcrumb Bar */}
-          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border/80 bg-background/90 px-4 md:px-6 backdrop-blur-md print:hidden">
-            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-sm">
+          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-border/80 bg-background/90 px-3 sm:px-4 md:px-6 backdrop-blur-md print:hidden">
+            <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 overflow-hidden items-center gap-1.5 text-sm">
               <button
                 type="button"
                 onClick={onClose}
@@ -291,21 +345,22 @@ export default function RecipeModal({
               >
                 Recipes
               </button>
-              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
-              <span className="truncate font-medium text-foreground">{recipe.title}</span>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60 hidden sm:block" />
+              <span className="truncate font-medium text-foreground hidden sm:inline">{recipe.title}</span>
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               {onBookmark && (
                 <button
                   type="button"
                   onClick={() => onBookmark(recipe)}
-                  className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
+                  className={`inline-flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                     isBookmarked
                       ? "border-foreground bg-secondary text-foreground"
                       : "border-border bg-background text-foreground hover:bg-secondary"
                   }`}
                   title={isBookmarked ? "Saved in collection" : "Save to collection"}
+                  aria-label={isBookmarked ? "Saved in collection" : "Save to collection"}
                 >
                   <Bookmark
                     className={`w-3.5 h-3.5 ${isBookmarked ? "fill-primary text-primary-dark" : ""}`}
@@ -317,10 +372,11 @@ export default function RecipeModal({
               <button
                 type="button"
                 onClick={() => setIsCookingModeOpen(true)}
-                className="inline-flex lg:hidden items-center gap-1.5 h-9 px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
+                className="inline-flex lg:hidden items-center gap-1.5 h-9 px-2.5 sm:px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
               >
                 <Play className="w-3.5 h-3.5 fill-current text-primary" />
-                <span>Let&apos;s Cook</span>
+                <span className="sm:hidden">Cook</span>
+                <span className="hidden sm:inline">Let&apos;s Cook</span>
               </button>
 
               {isAdmin && (
@@ -328,12 +384,13 @@ export default function RecipeModal({
                   <button
                     type="button"
                     onClick={() => setShowPlannerBar((v) => !v)}
-                    className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
+                    className={`inline-flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                       showPlannerBar
                         ? "border-foreground bg-secondary text-foreground"
                         : "border-border bg-background text-foreground hover:bg-secondary"
                     }`}
                     title="Add to Meal Plan"
+                    aria-label="Add to Meal Plan"
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">Plan</span>
@@ -471,7 +528,10 @@ export default function RecipeModal({
                   </div>
 
                   <div className="space-y-3">
-                    <h1 className="font-serif text-4xl sm:text-5xl md:text-[52px] font-semibold text-foreground tracking-[-0.015em] leading-[1.06]">
+                    <h1
+                      id="recipe-modal-title"
+                      className="font-serif text-4xl sm:text-5xl md:text-[52px] font-semibold text-foreground tracking-[-0.015em] leading-[1.06]"
+                    >
                       {recipe.title}
                     </h1>
                     {recipe.description && (
@@ -520,7 +580,7 @@ export default function RecipeModal({
                       <Play className="w-4 h-4 fill-current text-primary" />
                       <span>Start Cooking Mode</span>
                     </button>
-                    {recipe.sourceUrl && (
+                    {recipe.sourceUrl && /^https?:\/\//i.test(recipe.sourceUrl) && (
                       <a
                         href={recipe.sourceUrl}
                         target="_blank"
@@ -540,24 +600,24 @@ export default function RecipeModal({
                 {/* Left Column: Ingredients + Scaler + Nutrition */}
                 <div className="md:col-span-5 lg:col-span-4 md:sticky md:top-0 self-start flex flex-col md:max-h-[calc(100dvh-7rem)] print:static print:max-h-none space-y-6 pt-6 md:pt-8 md:pb-4">
                   <div className="flex items-center justify-between gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.innerWidth < 768) {
-                          setIsIngredientsCollapsed(!isIngredientsCollapsed);
-                        }
-                      }}
-                      className="flex items-center gap-2 text-left md:cursor-default cursor-pointer"
-                    >
-                      <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
-                        Ingredients
-                      </h2>
-                      <ChevronDown
-                        className={`w-4 h-4 text-muted-foreground md:hidden transition-transform duration-200 ${
-                          isIngredientsCollapsed ? "" : "rotate-180"
-                        }`}
-                      />
-                    </button>
+                    <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.innerWidth < 768) {
+                            setIsIngredientsCollapsed(!isIngredientsCollapsed);
+                          }
+                        }}
+                        className="flex items-center gap-2 text-left md:cursor-default cursor-pointer"
+                      >
+                        <span>Ingredients</span>
+                        <ChevronDown
+                          className={`w-4 h-4 text-muted-foreground md:hidden transition-transform duration-200 ${
+                            isIngredientsCollapsed ? "" : "rotate-180"
+                          }`}
+                        />
+                      </button>
+                    </h2>
 
                     {/* Compact Cook Well Servings Stepper Pill */}
                     <div className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/60 p-1 print:hidden">

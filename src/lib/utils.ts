@@ -50,17 +50,17 @@ export function getMealTypeButtonColor(type: string | undefined, selected: boole
 
   switch (type) {
     case "Starter":
-      return "bg-red-600 text-white border border-red-600 dark:bg-red-500 dark:text-white dark:border-red-500 shadow-xs";
+      return "bg-red-700 text-white border border-red-700 dark:bg-red-400 dark:text-neutral-950 dark:border-red-400 shadow-xs";
     case "Main":
-      return "bg-blue-600 text-white border border-blue-600 dark:bg-blue-500 dark:text-white dark:border-blue-500 shadow-xs";
+      return "bg-blue-700 text-white border border-blue-700 dark:bg-blue-400 dark:text-neutral-950 dark:border-blue-400 shadow-xs";
     case "Side":
-      return "bg-green-600 text-white border border-green-600 dark:bg-green-500 dark:text-white dark:border-green-500 shadow-xs";
+      return "bg-green-700 text-white border border-green-700 dark:bg-green-400 dark:text-neutral-950 dark:border-green-400 shadow-xs";
     case "Drink":
-      return "bg-orange-600 text-white border border-orange-600 dark:bg-orange-500 dark:text-white dark:border-orange-500 shadow-xs";
+      return "bg-orange-700 text-white border border-orange-700 dark:bg-orange-400 dark:text-neutral-950 dark:border-orange-400 shadow-xs";
     case "Dessert":
-      return "bg-purple-600 text-white border border-purple-600 dark:bg-purple-500 dark:text-white dark:border-purple-500 shadow-xs";
+      return "bg-purple-700 text-white border border-purple-700 dark:bg-purple-400 dark:text-neutral-950 dark:border-purple-400 shadow-xs";
     case "Snack":
-      return "bg-amber-600 text-white border border-amber-600 dark:bg-amber-500 dark:text-neutral-950 dark:border-amber-500 shadow-xs";
+      return "bg-amber-700 text-white border border-amber-700 dark:bg-amber-400 dark:text-neutral-950 dark:border-amber-400 shadow-xs";
     default:
       return "bg-foreground text-background border border-foreground";
   }

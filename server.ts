@@ -4,13 +4,22 @@ import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { cleanDishQuery, searchEditorialFoodImages } from "./src/lib/editorialImageSearch";
+import { parseRecipeFromUrl } from "./src/lib/recipeUrlParser";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err && err.type === "entity.parse.failed" && req.path.startsWith("/api/")) {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(400).json({ error: "Invalid JSON request body." });
+    return;
+  }
+  next(err);
+});
 
 // Initialize Google GenAI lazily to avoid crashing on start if the key is not set yet.
 let aiInstance: GoogleGenAI | null = null;
@@ -247,109 +256,39 @@ function extractJsonArray(text: string): any[] {
   throw new Error("Failed to parse recipe array from response");
 }
 
-function extractJsonObject(text: string): any {
-  let cleaned = text.trim();
-  if (cleaned.includes("```")) {
-    const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    if (match && match[1]) {
-      cleaned = match[1].trim();
-    }
-  }
-
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    const startIdx = cleaned.indexOf("{");
-    const endIdx = cleaned.lastIndexOf("}");
-    if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-      const slice = cleaned.slice(startIdx, endIdx + 1);
-      return JSON.parse(slice);
-    }
-    throw e;
-  }
-}
-
-// Simple HTML cleaning function to strip script, style, and navigation noise.
-function cleanHtml(html: string): string {
-  let cleaned = html.replace(/<head[^>]*>[\s\S]*?<\/head>/gi, "");
-  cleaned = cleaned.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-  cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-  cleaned = cleaned.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "");
-  cleaned = cleaned.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, "");
-  cleaned = cleaned.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, "");
-  cleaned = cleaned.replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, "");
-  cleaned = cleaned.replace(/<header[^>]*>[\s\S]*?<\/header>/gi, "");
-  cleaned = cleaned.replace(/\s+/g, " ");
-  cleaned = cleaned.replace(/<!--[\s\S]*?-->/g, "");
-  return cleaned.slice(0, 50000); // 50k characters limit
-}
-
 // API Routes
-app.post("/api/parse-url", async (req, res) => {
-  const { url } = req.body;
+app.options("/api/parse-url", (_req, res) => {
+  res.setHeader("Allow", "POST, OPTIONS");
+  res.setHeader("Cache-Control", "no-store");
+  res.status(204).end();
+});
 
-  if (!url) {
-    res.status(400).json({ error: "URL is required" });
-    return;
-  }
+app.post("/api/parse-url", async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const rawUrl = typeof req.body?.url === "string" ? req.body.url : "";
 
   try {
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-    let textToParse = "";
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      const response = await fetch(proxyUrl, { signal: controller.signal });
-      
-      if (response.ok) {
-        const json = await response.json();
-        textToParse = cleanHtml(json.contents || "");
-      }
-      clearTimeout(timeoutId);
-    } catch (e) {
-      console.warn("Proxy fetch failed or timed out, relying on LLM knowledge base.");
-    }
-
-    const prompt = `Extract or reconstruct the recipe details for the following URL: ${url}
-
-${textToParse ? `Here is some extracted webpage content to help you:\n\n${textToParse.slice(0, 15000)}` : "Use your internal knowledge base to reconstruct the recipe based on the URL."}
-
-Instructions:
-- CRITICAL DIETARY CONSTRAINT: This application strictly enforces a Halal diet. You MUST ensure the extracted recipe is 100% Halal.
-  1. ABSOLUTELY NO PORK or pork derivatives (bacon, ham, lard, gelatin). If the original text contains them, you MUST seamlessly substitute them with a halal alternative (e.g., beef, chicken, lamb, or turkey bacon).
-  2. ABSOLUTELY NO ALCOHOL (wine, beer, liquor) with the strict exception of wine vinegars and mirin, which are permitted. If the original text contains other alcohol, substitute it with a non-alcoholic alternative (like broth or juice) or omit it.
-- Extract the title, a short descriptive summary, the cuisine type (e.g. Desi, Persian, Middle Eastern, Italian, Mexican, Asian, American, Mediterranean, Thai, French, Japanese, Caribbean, Other).
-- Categorize the mealType as exactly one of: "Appetizer", "Main", "Side", "Drink", or "Dessert".
-- Extract cookingTime in minutes (combining prep and cook time if necessary).
-- Parse the list of ingredients, separating each into "name", "amount" (a decimal number), and "unit" (e.g., "cup", "tbsp", "g", "piece", or blank "" if it's an item count).
-- Extract the instructions as a clean ordered array of steps.
-- Add some cooking tips or notes if found.
-- Estimate the nutritional values per serving, including calories, protein (g), carbs (g), and fat (g).
-- If the recipe calls for any uncommon or hard-to-find ingredients, you MUST provide a suggestion for a common substitute in the notes section (e.g. "If you can't find X, you can substitute it with Y").
-- Pick a short, 1-2 word search keyword that represents the main dish (e.g., "pasta", "salad", "cake") to be used for finding a matching placeholder image.
-- If some of these values are missing in the text, make a sensible estimation or classification based on the URL and context.
-
-OUTPUT FORMAT:
-Provide your response strictly as a single JSON object inside a \`\`\`json code block. Do not include any other text.`;
-
-    const responseText = await callGeminiWithFallback({
-      prompt,
+    const result = await parseRecipeFromUrl({
+      url: rawUrl,
+      geminiApiKey: process.env.GEMINI_API_KEY,
     });
 
-    const parsedJson = extractJsonObject(responseText);
-    
-    // Automatically assign a matching drawn vector image
-    if (parsedJson.imageKeyword) {
-      parsedJson.imageUrl = "";
-      delete parsedJson.imageKeyword;
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
     }
 
-    res.json(parsedJson);
+    res.json(result.recipe);
   } catch (error: any) {
     console.error("Scraper / Parser Error:", error);
-    res.status(500).json({ error: error.message || "An error occurred while parsing the URL" });
+    res.status(500).json({ error: error?.message || "An error occurred while parsing the URL." });
   }
+});
+
+app.all("/api/parse-url", (_req, res) => {
+  res.setHeader("Allow", "POST, OPTIONS");
+  res.setHeader("Cache-Control", "no-store");
+  res.status(405).json({ error: "Method not allowed. Use POST." });
 });
 
 app.post("/api/generate-recipe", async (req, res) => {
@@ -647,6 +586,11 @@ async function configureServer() {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
+      if (req.path.startsWith("/api/")) {
+        res.setHeader("Cache-Control", "no-store");
+        res.status(404).json({ error: "API route not found." });
+        return;
+      }
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

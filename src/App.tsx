@@ -97,7 +97,16 @@ export default function App() {
       const saved = localStorage.getItem("cookbook_collections");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (c): c is RecipeCollection =>
+              Boolean(c) &&
+              typeof c === "object" &&
+              typeof (c as any).id === "string" &&
+              typeof (c as any).name === "string" &&
+              Array.isArray((c as any).recipeIds)
+          );
+        }
       }
     } catch {}
     return [];
@@ -355,7 +364,12 @@ export default function App() {
   const loadMealsFromLocalStorage = () => {
     const stored = localStorage.getItem("zest_meals");
     if (stored) {
-      setMealPlan(JSON.parse(stored));
+      try {
+        const parsed = JSON.parse(stored);
+        setMealPlan(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        setMealPlan([]);
+      }
     } else {
       setMealPlan([]);
     }
@@ -1102,10 +1116,11 @@ export default function App() {
             {currentTab === "recipes" && (
               <>
                 {/* Desktop Inline Search Pill */}
-                <div className="relative hidden sm:block w-56 lg:w-72">
+                <div className="relative hidden sm:block w-44 lg:w-72">
                   <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
+                    aria-label="Search recipes and ingredients"
                     placeholder="Search recipes, ingredients..."
                     value={filters.searchQuery}
                     onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
