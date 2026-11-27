@@ -316,7 +316,7 @@ export default function TopRatedSearch({ onSelectRecipe, onQuickSave }: TopRated
             }}
             placeholder="Search top-rated dishes (e.g. Smash Burger, Risotto)..."
             disabled={isSearching}
-            className="w-full h-11 pl-11 pr-10 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20 text-sm placeholder:text-muted-foreground"
+            className="w-full h-11 pl-11 pr-10 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20 text-base sm:text-sm placeholder:text-muted-foreground"
           />
           {query && !isSearching && (
             <button

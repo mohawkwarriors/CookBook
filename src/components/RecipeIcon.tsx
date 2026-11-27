@@ -195,39 +195,44 @@ export default function RecipeIcon({ recipe, className = '', variant = 'cover' }
 
   if (variant === 'compact') {
     return (
-      <div
+      <span
         style={surfaceVars}
         className={`relative flex items-center justify-center overflow-hidden recipe-cover-surface ${className}`}
       >
         {/* Light-mode soft aurora orbs */}
-        <div
+        <span
+          aria-hidden="true"
           className="pointer-events-none dark:hidden absolute -top-[28%] -left-[24%] w-[85%] h-[85%] rounded-full blur-md"
           style={{ background: surface.lightOrb1 }}
         />
-        <div
+        <span
+          aria-hidden="true"
           className="pointer-events-none dark:hidden absolute -bottom-[28%] -right-[24%] w-[85%] h-[85%] rounded-full blur-md"
           style={{ background: surface.lightOrb2 }}
         />
         <Icon className="relative z-10 w-[34%] h-[34%] opacity-85" strokeWidth={1.6} />
-      </div>
+      </span>
     );
   }
 
   return (
-    <div
+    <span
       style={surfaceVars}
       className={`relative flex items-center justify-center overflow-hidden recipe-cover-surface ${className}`}
     >
       {/* Light-mode smooth aurora orbs & subtle depth glaze (Option E light mode) */}
-      <div
+      <span
+        aria-hidden="true"
         className="pointer-events-none dark:hidden absolute -top-[18%] -left-[16%] w-[78%] h-[68%] rounded-full blur-3xl"
         style={{ background: surface.lightOrb1 }}
       />
-      <div
+      <span
+        aria-hidden="true"
         className="pointer-events-none dark:hidden absolute -bottom-[20%] -right-[16%] w-[78%] h-[68%] rounded-full blur-3xl"
         style={{ background: surface.lightOrb2 }}
       />
-      <div
+      <span
+        aria-hidden="true"
         className="pointer-events-none dark:hidden absolute inset-0"
         style={{
           background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.16) 100%)',
@@ -239,7 +244,7 @@ export default function RecipeIcon({ recipe, className = '', variant = 'cover' }
         className="relative z-10 w-[24%] h-[24%] min-w-[44px] min-h-[44px] max-w-[74px] max-h-[74px] opacity-85"
         strokeWidth={1.35}
       />
-    </div>
+    </span>
   );
 }
 

@@ -39,6 +39,7 @@ interface RecipeModalProps {
   isOpen: boolean;
   isAdmin?: boolean;
   isBookmarked?: boolean;
+  isSuspended?: boolean;
   onBookmark?: (recipe: Recipe) => void;
   onClose: () => void;
   onEdit: (recipe: Recipe) => void;
@@ -66,6 +67,7 @@ export default function RecipeModal({
   isOpen,
   isAdmin,
   isBookmarked = false,
+  isSuspended = false,
   onBookmark,
   onClose,
   onEdit,
@@ -86,17 +88,20 @@ export default function RecipeModal({
   const [collapsedIngredientGroups, setCollapsedIngredientGroups] = useState<Set<string>>(new Set());
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
   const [isIngredientsCollapsed, setIsIngredientsCollapsed] = useState(false);
-  const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const [ingScrollFade, setIngScrollFade] = useState({ top: false, bottom: false });
   const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
   const [targetTimeValue, setTargetTimeValue] = useState("");
   const [targetDayOffset, setTargetDayOffset] = useState<number>(0);
   const [scheduleNow, setScheduleNow] = useState<Date>(() => new Date());
+  const [heroImgFailed, setHeroImgFailed] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const ingredientsScrollRef = useRef<HTMLDivElement>(null);
-  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    setHeroImgFailed(false);
+  }, [recipe?.imageUrl]);
 
   useBodyScrollLock(Boolean(isOpen && recipe));
 
@@ -256,7 +261,6 @@ export default function RecipeModal({
       setCollapsedIngredientGroups(new Set());
       setIsCookingModeOpen(false);
       setIsIngredientsCollapsed(false);
-      setHasAutoCollapsed(false);
       setIsScheduleExpanded(false);
       setScheduleNow(new Date());
 
@@ -360,9 +364,9 @@ export default function RecipeModal({
     };
   }, [isOpen, recipe, parsedIngredients.isGrouped, collapsedIngredientGroups]);
 
-  // Trap Tab focus inside dialog and close on Escape when Cooking Mode is not open
+  // Trap Tab focus inside dialog and close on Escape when no higher overlay is open
   useEffect(() => {
-    if (!isOpen || isCookingModeOpen) return;
+    if (!isOpen || isCookingModeOpen || isSuspended) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
@@ -393,26 +397,7 @@ export default function RecipeModal({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, isCookingModeOpen, onClose]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const container = bodyRef.current;
-      if (!container || window.innerWidth >= 768) return;
-      const currentScrollY = container.scrollTop;
-      if (currentScrollY > lastScrollY.current && currentScrollY > 40 && !hasAutoCollapsed && !isIngredientsCollapsed) {
-        setIsIngredientsCollapsed(true);
-        setHasAutoCollapsed(true);
-      }
-      lastScrollY.current = currentScrollY;
-    };
-
-    const container = bodyRef.current;
-    if (container) container.addEventListener("scroll", handleScroll);
-    return () => {
-      if (container) container.removeEventListener("scroll", handleScroll);
-    };
-  }, [hasAutoCollapsed, isIngredientsCollapsed]);
+  }, [isOpen, isCookingModeOpen, isSuspended, onClose]);
 
   const scaleRatio = servings / (recipe?.servings || 1);
 
@@ -478,15 +463,20 @@ export default function RecipeModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           id="recipe-modal-overlay"
-          className="fixed inset-0 z-50 flex flex-col bg-background overflow-hidden print:bg-white outline-none"
+          className="fixed inset-0 h-dvh z-50 flex flex-col bg-background overflow-hidden pt-safe print:bg-white outline-none"
         >
           {/* Cook Well Sticky Top Breadcrumb Bar */}
           <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 sm:gap-3 border-b border-border/80 bg-background/90 px-3 sm:px-4 md:px-6 backdrop-blur-md print:hidden">
-            <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 overflow-hidden items-center gap-1.5 text-sm">
+            <nav
+              aria-label="Breadcrumb"
+              className={`${
+                showDeleteConfirm ? "hidden sm:flex" : "flex"
+              } min-w-0 flex-1 overflow-hidden items-center gap-1.5 text-sm`}
+            >
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors cursor-pointer font-medium"
+                className="shrink-0 py-2 -my-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer font-medium"
               >
                 Recipes
               </button>
@@ -494,12 +484,20 @@ export default function RecipeModal({
               <span className="truncate font-medium text-foreground hidden sm:inline">{recipe.title}</span>
             </nav>
 
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            {showDeleteConfirm && (
+              <span className="sm:hidden text-xs font-medium text-red-600 dark:text-red-400 truncate">
+                Delete recipe?
+              </span>
+            )}
+
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 ml-auto">
               {onBookmark && (
                 <button
                   type="button"
                   onClick={() => onBookmark(recipe)}
-                  className={`inline-flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
+                  className={`${
+                    showDeleteConfirm ? "hidden sm:inline-flex" : "inline-flex"
+                  } items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                     isBookmarked
                       ? "border-foreground bg-secondary text-foreground"
                       : "border-border bg-background text-foreground hover:bg-secondary"
@@ -517,7 +515,9 @@ export default function RecipeModal({
               <button
                 type="button"
                 onClick={() => setIsCookingModeOpen(true)}
-                className="inline-flex lg:hidden items-center gap-1.5 h-9 px-2.5 sm:px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]"
+                className={`${
+                  showDeleteConfirm ? "hidden sm:inline-flex lg:hidden" : "inline-flex lg:hidden"
+                } items-center gap-1.5 h-9 px-2.5 sm:px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-all cursor-pointer active:scale-[0.98]`}
               >
                 <Play className="w-3.5 h-3.5 fill-current text-primary" />
                 <span className="sm:hidden">Cook</span>
@@ -529,7 +529,9 @@ export default function RecipeModal({
                   <button
                     type="button"
                     onClick={() => setShowPlannerBar((v) => !v)}
-                    className={`inline-flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
+                    className={`${
+                      showDeleteConfirm ? "hidden sm:inline-flex" : "inline-flex"
+                    } items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-3.5 rounded-full border text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                       showPlannerBar
                         ? "border-foreground bg-secondary text-foreground"
                         : "border-border bg-background text-foreground hover:bg-secondary"
@@ -544,12 +546,25 @@ export default function RecipeModal({
                   <button
                     type="button"
                     onClick={() => onEdit(recipe)}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                    className={`${
+                      showDeleteConfirm ? "hidden sm:inline-flex" : "inline-flex"
+                    } items-center justify-center w-9 h-9 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer`}
                     title="Edit recipe"
                     aria-label="Edit recipe"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
+
+                  {showDeleteConfirm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                      className="inline-flex items-center justify-center h-9 px-3 rounded-full border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -561,7 +576,7 @@ export default function RecipeModal({
                         : "w-9 border-border text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-secondary"
                     }`}
                     title="Delete recipe"
-                    aria-label="Delete recipe"
+                    aria-label={showDeleteConfirm ? "Confirm delete recipe" : "Delete recipe"}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     {showDeleteConfirm && <span>{isDeleting ? "Deleting..." : "Confirm"}</span>}
@@ -588,7 +603,7 @@ export default function RecipeModal({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="overflow-hidden border-b border-border bg-secondary/50 print:hidden"
+                className="overflow-hidden border-b border-border bg-secondary/50 print:hidden shrink-0"
               >
                 <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -601,12 +616,12 @@ export default function RecipeModal({
                       type="date"
                       value={plannerDate}
                       onChange={(e) => setPlannerDate(e.target.value)}
-                      className="h-9 px-3 text-xs font-medium border border-border bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20"
+                      className="h-10 sm:h-9 px-3 text-base sm:text-xs font-medium border border-border bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20"
                     />
                     <select
                       value={plannerMeal}
                       onChange={(e) => setPlannerMeal(e.target.value as any)}
-                      className="h-9 px-3 text-xs font-medium border border-border bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20"
+                      className="h-10 sm:h-9 px-3 text-base sm:text-xs font-medium border border-border bg-background text-foreground rounded-full focus:outline-none focus:ring-2 focus:ring-ring/20"
                     >
                       <option value="Breakfast">Breakfast</option>
                       <option value="Lunch">Lunch</option>
@@ -617,7 +632,7 @@ export default function RecipeModal({
                       type="button"
                       onClick={handlePlanMeal}
                       disabled={isPlanning || !plannerDate}
-                      className="h-9 px-4 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-85 transition-opacity disabled:opacity-50 cursor-pointer"
+                      className="h-10 sm:h-9 px-4 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-85 transition-opacity disabled:opacity-50 cursor-pointer"
                     >
                       {plannedSuccess ? "Added!" : isPlanning ? "Adding..." : "Add to Plan"}
                     </button>
@@ -628,23 +643,24 @@ export default function RecipeModal({
           </AnimatePresence>
 
           {/* Scrollable Editorial Body */}
-          <div ref={bodyRef} className="flex-1 overflow-y-auto print:overflow-visible">
+          <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain print:overflow-visible">
             <motion.div
               id="recipe-modal-card"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12 space-y-10 md:space-y-14"
+              className="max-w-5xl mx-auto px-4 sm:px-6 md:px-8 pt-8 pb-[max(2.5rem,env(safe-area-inset-bottom,0px))] md:py-12 space-y-10 md:space-y-14"
             >
               {/* Hero Split */}
               <section className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10 items-start">
                 <div className="md:col-span-5">
                   <div className="aspect-[4/3] md:aspect-[4/5] w-full rounded-2xl overflow-hidden bg-muted border border-border/60">
-                    {recipe.imageUrl ? (
+                    {recipe.imageUrl && !heroImgFailed ? (
                       <img
                         src={recipe.imageUrl}
                         alt={recipe.title}
                         referrerPolicy="no-referrer"
+                        onError={() => setHeroImgFailed(true)}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -806,7 +822,7 @@ export default function RecipeModal({
                         type="button"
                         onClick={() => servings > 1 && setServings((s) => s - 1)}
                         disabled={servings <= 1}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-foreground hover:bg-background disabled:opacity-30 transition-colors cursor-pointer"
+                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-foreground hover:bg-background disabled:opacity-30 transition-colors cursor-pointer"
                         aria-label="Decrease servings"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -817,7 +833,7 @@ export default function RecipeModal({
                       <button
                         type="button"
                         onClick={() => setServings((s) => s + 1)}
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-foreground hover:bg-background transition-colors cursor-pointer"
+                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-foreground hover:bg-background transition-colors cursor-pointer"
                         aria-label="Increase servings"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -850,7 +866,7 @@ export default function RecipeModal({
                             );
                           }
                         }}
-                        className="font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer print:hidden"
+                        className="py-1.5 font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer print:hidden"
                       >
                         {collapsedIngredientGroups.size ===
                         parsedIngredients.groups.length
@@ -885,38 +901,37 @@ export default function RecipeModal({
                         ) => {
                           const isCompleted = completedIngredients.has(originalIdx);
                           return (
-                            <li
-                              key={originalIdx}
-                              onClick={() => toggleIngredientComplete(originalIdx)}
-                              className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span
-                                  className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
-                                    isCompleted
-                                      ? "bg-primary border-primary text-primary-foreground"
-                                      : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
-                                  }`}
-                                >
-                                  {isCompleted && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
-                                </span>
-                                <span
-                                  className={`text-sm leading-snug transition-colors ${
-                                    isCompleted
-                                      ? "line-through text-muted-foreground/60"
-                                      : "text-foreground"
-                                  }`}
-                                >
-                                  {formatIngredientName(displayName)}
-                                </span>
-                              </div>
-                              <span
-                                className={`font-mono text-xs tabular-nums text-right shrink-0 ${
-                                  isCompleted ? "text-muted-foreground/50" : "text-muted-foreground"
-                                }`}
+                            <li key={originalIdx}>
+                              <button
+                                type="button"
+                                aria-pressed={isCompleted}
+                                onClick={() => toggleIngredientComplete(originalIdx)}
+                                className="w-full flex items-center justify-between gap-3 py-3 text-left cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]"
                               >
-                                {formatAmount(ing.amount)} {ing.unit}
-                              </span>
+                                <span className="flex items-center gap-3 min-w-0">
+                                  <span
+                                    className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                      isCompleted
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
+                                    }`}
+                                  >
+                                    {isCompleted && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
+                                  </span>
+                                  <span
+                                    className={`text-sm leading-snug break-words transition-colors ${
+                                      isCompleted
+                                        ? "line-through text-muted-foreground"
+                                        : "text-foreground"
+                                    }`}
+                                  >
+                                    {formatIngredientName(displayName)}
+                                  </span>
+                                </span>
+                                <span className="font-mono text-xs tabular-nums text-right shrink-0 text-muted-foreground">
+                                  {formatAmount(ing.amount)} {ing.unit}
+                                </span>
+                              </button>
                             </li>
                           );
                         };
@@ -962,7 +977,7 @@ export default function RecipeModal({
 
                 {/* Right Column: Method / Instructions */}
                 <div className="md:col-span-7 lg:col-span-8 pt-2 md:pt-8 space-y-6">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                     <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
                       Method
                     </h2>
@@ -1108,13 +1123,13 @@ export default function RecipeModal({
                                   type="button"
                                   aria-expanded={!isCollapsed}
                                   onClick={() => toggleChapterCollapsed(chapter.id, chapter.title)}
-                                  className="w-full px-4 sm:px-5 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-secondary/50 transition-colors cursor-pointer"
+                                  className="w-full px-4 sm:px-5 py-3.5 flex flex-wrap items-center justify-between gap-2 sm:gap-3 text-left hover:bg-secondary/50 transition-colors cursor-pointer"
                                 >
-                                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 min-w-0">
+                                  <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 min-w-0">
                                     <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.12em] text-primary-dark dark:text-primary shrink-0">
                                       Part {chapter.chapterNumber}
                                     </span>
-                                    <h3
+                                    <span
                                       className={`font-serif text-xl sm:text-[22px] font-semibold leading-tight tracking-tight transition-colors ${
                                         isChapterDone
                                           ? "text-muted-foreground line-through"
@@ -1122,10 +1137,10 @@ export default function RecipeModal({
                                       }`}
                                     >
                                       {chapter.title}
-                                    </h3>
-                                  </div>
+                                    </span>
+                                  </span>
 
-                                  <div className="flex items-center gap-2.5 shrink-0">
+                                  <span className="flex items-center gap-2 shrink-0 ml-auto">
                                     {(() => {
                                       const chapterStart = computedSchedule?.chapterStartById.get(
                                         chapter.id
@@ -1166,7 +1181,7 @@ export default function RecipeModal({
                                         isCollapsed ? "-rotate-90" : ""
                                       }`}
                                     />
-                                  </div>
+                                  </span>
                                 </button>
 
                                 <AnimatePresence initial={false}>

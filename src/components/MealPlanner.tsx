@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -12,6 +12,7 @@ import {
 import { MealPlanEntry, Recipe } from "../types";
 import RecipeIcon from "./RecipeIcon";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
+import { useDialogFocusTrap } from "../hooks/useDialogFocusTrap";
 
 interface MealPlannerProps {
   mealPlan: MealPlanEntry[];
@@ -42,7 +43,25 @@ export default function MealPlanner({
   const [addingMealType, setAddingMealType] = useState<(typeof MEAL_TYPES)[number]>("Dinner");
   const [pickerQuery, setPickerQuery] = useState("");
 
+  const quickAddRef = useRef<HTMLDivElement>(null);
+  const groceryDrawerRef = useRef<HTMLDivElement>(null);
+
   useBodyScrollLock(Boolean(addingForDate) || showGroceryDrawer);
+  useDialogFocusTrap(Boolean(addingForDate), quickAddRef);
+  useDialogFocusTrap(showGroceryDrawer, groceryDrawerRef);
+
+  useEffect(() => {
+    if (!addingForDate && !showGroceryDrawer) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (addingForDate) setAddingForDate(null);
+        else if (showGroceryDrawer) setShowGroceryDrawer(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [addingForDate, showGroceryDrawer]);
 
   const getWeekDays = (baseDate: Date) => {
     const sunday = new Date(baseDate);
@@ -72,19 +91,21 @@ export default function MealPlanner({
 
     for (const entry of weekEntries) {
       const recipe = recipes.find((r) => r.id === entry.recipeId);
-      if (!recipe) continue;
+      if (!recipe || !Array.isArray(recipe.ingredients)) continue;
       const ratio = (entry.servings || recipe.servings || 1) / (recipe.servings || 1);
       for (const ing of recipe.ingredients) {
-        const key = `${ing.name.trim().toLowerCase()}__${(ing.unit || "").trim().toLowerCase()}`;
+        if (!ing || typeof ing.name !== "string" || !ing.name.trim()) continue;
+        const unitStr = typeof ing.unit === "string" ? ing.unit.trim() : "";
+        const key = `${ing.name.trim().toLowerCase()}__${unitStr.toLowerCase()}`;
         const existing = map.get(key);
-        const scaledAmt = (ing.amount || 0) * ratio;
+        const scaledAmt = (Number.isFinite(ing.amount) ? ing.amount : 0) * ratio;
         if (existing) {
           existing.amount += scaledAmt;
           existing.count += 1;
         } else {
           map.set(key, {
             name: ing.name.trim(),
-            unit: (ing.unit || "").trim(),
+            unit: unitStr,
             amount: scaledAmt,
             count: 1,
           });
@@ -139,7 +160,7 @@ export default function MealPlanner({
     return recipes.filter(
       (r) =>
         r.title.toLowerCase().includes(q) ||
-        r.cuisine.toLowerCase().includes(q)
+        (r.cuisine || "").toLowerCase().includes(q)
     );
   }, [recipes, pickerQuery]);
 
@@ -160,7 +181,7 @@ export default function MealPlanner({
     <div className="space-y-6">
       {/* Cook Well Planner Control Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center rounded-full border border-border bg-card p-0.5">
             <button
               type="button"
@@ -204,7 +225,7 @@ export default function MealPlanner({
           <ShoppingBag className="w-3.5 h-3.5 text-primary" />
           <span>Grocery List</span>
           {weeklyGroceries.length > 0 && (
-            <span className="font-mono text-[11px] opacity-75">({weeklyGroceries.length})</span>
+            <span className="font-mono text-[11px] opacity-80">({weeklyGroceries.length})</span>
           )}
         </button>
       </div>
@@ -256,8 +277,9 @@ export default function MealPlanner({
                       <button
                         type="button"
                         onClick={() => setAddingForDate(dateStr)}
-                        className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
                         title={`Add meal for ${day.toLocaleDateString("en-US", { weekday: "short" })}`}
+                        aria-label={`Add meal for ${day.toLocaleDateString("en-US", { weekday: "short" })}`}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -267,7 +289,7 @@ export default function MealPlanner({
                   {/* Planned Meals */}
                   <div className="flex-1 space-y-2">
                     {dayEntries.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center text-center py-8 opacity-60">
+                      <div className="h-full flex flex-col items-center justify-center text-center py-8">
                         <p className="text-[11px] text-muted-foreground">Nothing planned</p>
                       </div>
                     ) : (
@@ -285,8 +307,9 @@ export default function MealPlanner({
                               <button
                                 type="button"
                                 onClick={() => entry.id && onRemoveMeal(entry.id)}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 text-muted-foreground hover:text-red-500 transition-opacity cursor-pointer"
+                                className="opacity-70 lg:opacity-0 lg:group-hover:opacity-100 focus-visible:opacity-100 p-0.5 text-muted-foreground hover:text-red-500 transition-opacity cursor-pointer"
                                 title="Remove meal"
+                                aria-label={`Remove ${entry.recipeTitle}`}
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -297,7 +320,7 @@ export default function MealPlanner({
                               className="w-full text-left flex items-start gap-2 cursor-pointer"
                             >
                               {matchedRecipe && (
-                                <div className="w-8 h-8 rounded-md overflow-hidden shrink-0 bg-muted mt-0.5">
+                                <span className="block w-8 h-8 rounded-md overflow-hidden shrink-0 bg-muted mt-0.5">
                                   {matchedRecipe.imageUrl ? (
                                     <img
                                       src={matchedRecipe.imageUrl}
@@ -307,16 +330,16 @@ export default function MealPlanner({
                                   ) : (
                                     <RecipeIcon recipe={matchedRecipe} variant="compact" className="w-full h-full" />
                                   )}
-                                </div>
+                                </span>
                               )}
-                              <div className="min-w-0 flex-1">
-                                <p className="text-xs font-medium text-foreground leading-snug line-clamp-2 group-hover:underline">
+                              <span className="min-w-0 flex-1 block">
+                                <span className="block text-xs font-medium text-foreground leading-snug line-clamp-2 group-hover:underline">
                                   {entry.recipeTitle}
-                                </p>
-                                <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
+                                </span>
+                                <span className="block text-[10px] text-muted-foreground mt-0.5 tabular-nums">
                                   {entry.servings} servings
-                                </p>
-                              </div>
+                                </span>
+                              </span>
                             </button>
                           </div>
                         );
@@ -346,7 +369,7 @@ export default function MealPlanner({
                         : "bg-card text-foreground border-border hover:bg-secondary"
                     }`}
                   >
-                    <span className={`text-[10px] uppercase ${selected ? "opacity-75" : "text-muted-foreground"}`}>
+                    <span className={`text-[10px] uppercase ${selected ? "opacity-80" : "text-muted-foreground"}`}>
                       {day.toLocaleDateString("en-US", { weekday: "narrow" })}
                     </span>
                     <span className="text-sm font-semibold tabular-nums mt-0.5">
@@ -370,7 +393,7 @@ export default function MealPlanner({
 
               return (
                 <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold text-foreground">
                       {activeDay.toLocaleDateString("en-US", {
                         weekday: "long",
@@ -382,7 +405,7 @@ export default function MealPlanner({
                       <button
                         type="button"
                         onClick={() => setAddingForDate(dateStr)}
-                        className="inline-flex items-center gap-1 h-8 px-3 rounded-full bg-secondary hover:bg-secondary/80 text-xs font-medium text-foreground cursor-pointer"
+                        className="inline-flex items-center gap-1 h-9 sm:h-8 px-3 rounded-full bg-secondary hover:bg-secondary/80 text-xs font-medium text-foreground cursor-pointer shrink-0"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Meal</span>
@@ -409,30 +432,30 @@ export default function MealPlanner({
                               className="flex items-center gap-3 min-w-0 text-left flex-1 cursor-pointer"
                             >
                               {matchedRecipe && (
-                                <div className="w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-muted">
+                                <span className="block w-11 h-11 rounded-lg overflow-hidden shrink-0 bg-muted">
                                   {matchedRecipe.imageUrl ? (
                                     <img src={matchedRecipe.imageUrl} alt="" className="w-full h-full object-cover" />
                                   ) : (
                                     <RecipeIcon recipe={matchedRecipe} variant="compact" className="w-full h-full" />
                                   )}
-                                </div>
+                                </span>
                               )}
-                              <div className="min-w-0">
-                                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <span className="min-w-0 block">
+                                <span className="block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                                   {entry.mealType}
                                 </span>
-                                <p className="text-sm font-medium text-foreground truncate">
+                                <span className="block text-sm font-medium text-foreground truncate">
                                   {entry.recipeTitle}
-                                </p>
-                                <p className="text-xs text-muted-foreground tabular-nums">
+                                </span>
+                                <span className="block text-xs text-muted-foreground tabular-nums">
                                   {entry.servings} servings
-                                </p>
-                              </div>
+                                </span>
+                              </span>
                             </button>
                             <button
                               type="button"
                               onClick={() => entry.id && onRemoveMeal(entry.id)}
-                              className="p-2 text-muted-foreground hover:text-red-500 cursor-pointer"
+                              className="p-2 text-muted-foreground hover:text-red-500 cursor-pointer shrink-0"
                               aria-label="Remove meal"
                             >
                               <X className="w-4 h-4" />
@@ -461,12 +484,17 @@ export default function MealPlanner({
               className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
             />
             <motion.div
+              ref={quickAddRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Add to meal plan"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              className="relative w-full max-w-md rounded-2xl border border-border bg-background shadow-2xl overflow-hidden z-10 flex flex-col max-h-[80vh]"
+              className="relative w-full max-w-md rounded-2xl border border-border bg-background shadow-2xl overflow-hidden z-10 flex flex-col max-h-[min(85dvh,calc(100dvh-2rem))] outline-none"
             >
-              <div className="p-4 border-b border-border flex items-center justify-between">
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Add to Meal Plan</h3>
                   <p className="text-xs text-muted-foreground">{addingForDate}</p>
@@ -474,20 +502,21 @@ export default function MealPlanner({
                 <button
                   type="button"
                   onClick={() => setAddingForDate(null)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                  aria-label="Close meal picker"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="p-4 space-y-3 border-b border-border">
+              <div className="p-4 space-y-3 border-b border-border shrink-0">
                 <div className="flex gap-1.5">
                   {MEAL_TYPES.map((mt) => (
                     <button
                       key={mt}
                       type="button"
                       onClick={() => setAddingMealType(mt)}
-                      className={`flex-1 h-8 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                      className={`flex-1 h-9 sm:h-8 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                         addingMealType === mt
                           ? "bg-foreground text-background"
                           : "bg-secondary text-muted-foreground hover:text-foreground"
@@ -504,13 +533,13 @@ export default function MealPlanner({
                     value={pickerQuery}
                     onChange={(e) => setPickerQuery(e.target.value)}
                     placeholder="Pick from your recipes..."
-                    className="w-full h-10 pl-10 pr-4 rounded-full bg-secondary text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    className="w-full h-10 pl-10 pr-4 rounded-full bg-secondary text-base sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
                     autoFocus
                   />
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-1">
                 {pickerRecipes.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8">
                     No matching recipes found.
@@ -523,19 +552,19 @@ export default function MealPlanner({
                       onClick={() => handleQuickAddRecipe(r)}
                       className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-secondary text-left transition-colors cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-muted">
+                      <span className="block w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-muted">
                         {r.imageUrl ? (
                           <img src={r.imageUrl} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <RecipeIcon recipe={r} variant="compact" className="w-full h-full" />
                         )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground truncate">{r.title}</p>
-                        <p className="text-xs text-muted-foreground">
+                      </span>
+                      <span className="min-w-0 flex-1 block">
+                        <span className="block text-sm font-medium text-foreground truncate">{r.title}</span>
+                        <span className="block text-xs text-muted-foreground">
                           {r.cuisine} · {r.servings} servings
-                        </p>
-                      </div>
+                        </span>
+                      </span>
                       <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
                     </button>
                   ))
@@ -558,13 +587,18 @@ export default function MealPlanner({
               className="absolute inset-0 bg-black/45 backdrop-blur-[2px]"
             />
             <motion.div
+              ref={groceryDrawerRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Weekly grocery list"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
-              className="relative w-full max-w-md bg-background border-l border-border h-full shadow-2xl flex flex-col z-10"
+              className="relative w-full max-w-md bg-background border-l border-border h-full shadow-2xl flex flex-col z-10 pt-safe outline-none"
             >
-              <div className="h-16 px-5 border-b border-border flex items-center justify-between">
+              <div className="min-h-14 sm:min-h-16 py-2 px-5 border-b border-border flex items-center justify-between shrink-0">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Weekly Grocery List</h3>
                   <p className="text-xs text-muted-foreground">{weekRangeLabel}</p>
@@ -572,13 +606,14 @@ export default function MealPlanner({
                 <button
                   type="button"
                   onClick={() => setShowGroceryDrawer(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                  aria-label="Close grocery list"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-2">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
                 {weeklyGroceries.length === 0 ? (
                   <div className="py-16 text-center space-y-2">
                     <ShoppingBag className="w-8 h-8 text-muted-foreground/40 mx-auto" />
@@ -592,33 +627,36 @@ export default function MealPlanner({
                     {weeklyGroceries.map((item) => {
                       const checked = checkedGroceries.has(item.key);
                       return (
-                        <li
-                          key={item.key}
-                          onClick={() => {
-                            const next = new Set(checkedGroceries);
-                            if (next.has(item.key)) next.delete(item.key);
-                            else next.add(item.key);
-                            setCheckedGroceries(next);
-                          }}
-                          className="flex items-center justify-between gap-3 py-3 cursor-pointer select-none"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span
-                              className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
-                                checked
-                                  ? "bg-primary border-primary text-primary-foreground"
-                                  : "border-neutral-300 dark:border-neutral-600"
-                              }`}
-                            >
-                              {checked && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                        <li key={item.key}>
+                          <button
+                            type="button"
+                            aria-pressed={checked}
+                            onClick={() => {
+                              const next = new Set(checkedGroceries);
+                              if (next.has(item.key)) next.delete(item.key);
+                              else next.add(item.key);
+                              setCheckedGroceries(next);
+                            }}
+                            className="w-full flex items-center justify-between gap-3 py-3 text-left cursor-pointer select-none"
+                          >
+                            <span className="flex items-center gap-3 min-w-0">
+                              <span
+                                className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                  checked
+                                    ? "bg-primary border-primary text-primary-foreground"
+                                    : "border-neutral-300 dark:border-neutral-600"
+                                }`}
+                              >
+                                {checked && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                              </span>
+                              <span className={`text-sm capitalize break-words ${checked ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                {item.name}
+                              </span>
                             </span>
-                            <span className={`text-sm capitalize ${checked ? "line-through text-muted-foreground/60" : "text-foreground"}`}>
-                              {item.name}
+                            <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
+                              {item.amount > 0 ? parseFloat(item.amount.toFixed(2)) : ""} {item.unit}
                             </span>
-                          </div>
-                          <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
-                            {item.amount > 0 ? parseFloat(item.amount.toFixed(2)) : ""} {item.unit}
-                          </span>
+                          </button>
                         </li>
                       );
                     })}
@@ -627,7 +665,7 @@ export default function MealPlanner({
               </div>
 
               {checkedGroceries.size > 0 && (
-                <div className="p-4 border-t border-border">
+                <div className="px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] border-t border-border shrink-0">
                   <button
                     type="button"
                     onClick={() => setCheckedGroceries(new Set())}

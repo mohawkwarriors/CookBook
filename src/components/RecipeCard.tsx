@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Clock, ChevronRight, Bookmark } from "lucide-react";
 import { Recipe } from "../types";
@@ -21,14 +21,30 @@ export default function RecipeCard({
   isBookmarked = false,
   onBookmark,
 }: RecipeCardProps) {
-  const hasImage = !!recipe.imageUrl;
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [recipe.imageUrl]);
+
+  const hasImage = Boolean(recipe.imageUrl) && !imgFailed;
+
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      onView(recipe);
+    }
+  };
 
   if (viewMode === "list") {
     return (
       <motion.div
+        role="button"
+        tabIndex={0}
         onClick={() => onView(recipe)}
+        onKeyDown={handleCardKeyDown}
         whileTap={{ scale: 0.992 }}
-        className="group cursor-pointer flex items-center gap-3.5 p-2.5 rounded-xl border border-border/80 bg-card hover:bg-secondary/60 hover:border-foreground/15 transition-all select-none"
+        className="group cursor-pointer flex items-center gap-3.5 p-2.5 rounded-xl border border-border/80 bg-card hover:bg-secondary/60 hover:border-foreground/15 transition-all select-none focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
       >
         <div className="w-14 h-14 shrink-0 overflow-hidden rounded-lg bg-muted relative">
           {hasImage ? (
@@ -36,6 +52,7 @@ export default function RecipeCard({
               src={recipe.imageUrl}
               alt={recipe.title}
               referrerPolicy="no-referrer"
+              onError={() => setImgFailed(true)}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out"
             />
           ) : (
@@ -73,10 +90,10 @@ export default function RecipeCard({
               e.stopPropagation();
               onBookmark(recipe);
             }}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
               isBookmarked
                 ? "text-foreground bg-secondary"
-                : "text-muted-foreground/60 hover:text-foreground hover:bg-secondary"
+                : "text-muted-foreground/70 hover:text-foreground hover:bg-secondary"
             }`}
             title={isBookmarked ? "Saved in collection" : "Save to collection"}
             aria-label={isBookmarked ? "Manage collections for this recipe" : "Save to collection"}
@@ -94,9 +111,12 @@ export default function RecipeCard({
 
   return (
     <motion.article
+      role="button"
+      tabIndex={0}
       onClick={() => onView(recipe)}
+      onKeyDown={handleCardKeyDown}
       whileTap={{ scale: 0.985, transition: { duration: 0.1 } }}
-      className="group cursor-pointer flex flex-col select-none h-full"
+      className="group cursor-pointer flex flex-col select-none h-full rounded-xl focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
     >
       {/* Cook Well 4:5 Portrait Cover Frame */}
       <div className="relative aspect-[4/5] w-full overflow-hidden rounded-xl bg-muted border border-border/50">
@@ -106,6 +126,7 @@ export default function RecipeCard({
               src={recipe.imageUrl}
               alt={recipe.title}
               referrerPolicy="no-referrer"
+              onError={() => setImgFailed(true)}
               className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 via-black/10 to-transparent opacity-80" />
@@ -126,7 +147,7 @@ export default function RecipeCard({
               e.stopPropagation();
               onBookmark(recipe);
             }}
-            className={`absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all cursor-pointer active:scale-90 ${
+            className={`absolute top-2 right-2 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all cursor-pointer active:scale-90 ${
               isBookmarked
                 ? "bg-foreground text-background shadow-sm opacity-100"
                 : hasImage

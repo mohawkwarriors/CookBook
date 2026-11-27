@@ -1,14 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { Download, X, Share, PlusSquare, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useDialogFocusTrap } from '../hooks/useDialogFocusTrap';
 
 export const PWAInstallButton: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useBodyScrollLock(showIOSGuide);
+  useDialogFocusTrap(showIOSGuide, dialogRef);
+
+  useEffect(() => {
+    if (!showIOSGuide) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowIOSGuide(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showIOSGuide]);
 
   // If already running as an installed PWA, hide the button
   if (isInstalled) {
@@ -26,7 +41,7 @@ export const PWAInstallButton: React.FC = () => {
         aria-label="Install App"
       >
         <Download className="w-3.5 h-3.5 text-primary" />
-        <span className="hidden xs:inline">Install App</span>
+        <span className="hidden sm:inline">Install App</span>
       </motion.button>
     );
   }
@@ -60,11 +75,16 @@ export const PWAInstallButton: React.FC = () => {
 
               {/* Modal Container */}
               <motion.div
+                ref={dialogRef}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Install on iPhone or iPad"
                 initial={{ opacity: 0, scale: 0.93, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.93, y: 15 }}
                 transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-                className="relative w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl z-10"
+                className="relative w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 outline-none"
               >
                 <button
                   onClick={() => setShowIOSGuide(false)}

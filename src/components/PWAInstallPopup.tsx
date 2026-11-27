@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { X, Share, PlusSquare, Smartphone, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CookbookLogo from './CookbookLogo';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useDialogFocusTrap } from '../hooks/useDialogFocusTrap';
 
 const STORAGE_KEY = 'cookbook_install_prompt_resolved';
 
@@ -11,8 +12,22 @@ export const PWAInstallPopup: React.FC = () => {
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
   const [isOpen, setIsOpen] = useState(false);
   const [showIOSSteps, setShowIOSSteps] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useBodyScrollLock(isOpen);
+  useDialogFocusTrap(isOpen, dialogRef);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        markResolvedAndClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen]);
 
   useEffect(() => {
     // Check if the user already responded or if app is already running as installed PWA
@@ -88,11 +103,13 @@ export const PWAInstallPopup: React.FC = () => {
 
         {/* Modal Container */}
         <motion.div
+          ref={dialogRef}
+          tabIndex={-1}
           initial={{ opacity: 0, scale: 0.92, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.92, y: 16 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-sm rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 overflow-hidden"
+          className="relative w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl bg-card border border-border p-6 shadow-2xl z-10 outline-none"
           role="dialog"
           aria-modal="true"
           aria-labelledby="install-modal-title"

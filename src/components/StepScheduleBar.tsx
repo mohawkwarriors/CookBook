@@ -123,7 +123,7 @@ export default function StepScheduleBar({
               <button
                 type="button"
                 onClick={onClear}
-                className="h-8 px-2.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors cursor-pointer inline-flex items-center gap-1 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                className="h-9 sm:h-8 px-3 sm:px-2.5 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-background/70 transition-colors cursor-pointer inline-flex items-center gap-1 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
               >
                 <X className="w-3 h-3" />
                 <span>Clear</span>
@@ -134,7 +134,7 @@ export default function StepScheduleBar({
               aria-expanded={isExpanded}
               aria-controls={panelId}
               onClick={onToggleExpanded}
-              className="h-8 px-3.5 rounded-full border border-border bg-card text-foreground hover:bg-background text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              className="h-9 sm:h-8 px-3.5 rounded-full border border-border bg-card text-foreground hover:bg-background text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
               <Clock className="w-3.5 h-3.5 text-primary-dark dark:text-primary" />
               <span>{isExpanded ? "Hide" : schedule ? "Adjust" : "Set time"}</span>
@@ -188,7 +188,7 @@ export default function StepScheduleBar({
                         type="button"
                         aria-pressed={dayOffset === 0}
                         onClick={() => onChangeTarget(timeValue, 0)}
-                        className={`h-8 sm:h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                        className={`h-9 sm:h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
                           dayOffset === 0
                             ? "bg-foreground text-background"
                             : "text-muted-foreground hover:text-foreground"
@@ -200,7 +200,7 @@ export default function StepScheduleBar({
                         type="button"
                         aria-pressed={dayOffset === 1}
                         onClick={() => onChangeTarget(timeValue, 1)}
-                        className={`h-8 sm:h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
+                        className={`h-9 sm:h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
                           dayOffset === 1
                             ? "bg-foreground text-background"
                             : "text-muted-foreground hover:text-foreground"
@@ -213,7 +213,7 @@ export default function StepScheduleBar({
                           type="button"
                           aria-pressed={true}
                           onClick={() => onChangeTarget(timeValue, dayOffset)}
-                          className="h-8 sm:h-7 px-3 rounded-full text-xs font-medium bg-foreground text-background transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                          className="h-9 sm:h-7 px-3 rounded-full text-xs font-medium bg-foreground text-background transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                         >
                           {getDayLabel(schedule.finishTime, now)}
                         </button>

@@ -23,6 +23,7 @@ import { PWAInstallPopup } from "./components/PWAInstallPopup";
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import { APP_VERSION, BUILD_DATE, BUILD_ID } from "./version";
 import { useBodyScrollLock } from "./hooks/useBodyScrollLock";
+import { useDialogFocusTrap } from "./hooks/useDialogFocusTrap";
 import { getMealTypeButtonColor } from "./lib/utils";
 import { STARTER_RECIPES } from "./data/starterRecipes";
 import {
@@ -90,9 +91,82 @@ const PRESET_RECIPES: Recipe[] = STARTER_RECIPES;
 
 type SortOrder = "newest" | "quickest" | "az";
 
+function readCachedRecipes(): Recipe[] | null {
+  try {
+    const stored = localStorage.getItem("zest_recipes");
+    if (stored === null) return null;
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return null;
+    const valid: Recipe[] = [];
+    for (const r of parsed) {
+      if (
+        !r ||
+        typeof r !== "object" ||
+        typeof (r as any).title !== "string" ||
+        !Array.isArray((r as any).ingredients) ||
+        !Array.isArray((r as any).instructions)
+      ) {
+        continue;
+      }
+      const cleanIngredients = (r as any).ingredients
+        .filter((ing: any) => Boolean(ing) && typeof ing === "object" && typeof ing.name === "string")
+        .map((ing: any) => ({
+          ...ing,
+          name: ing.name,
+          amount:
+            typeof ing.amount === "number" && Number.isFinite(ing.amount) && ing.amount >= 0
+              ? ing.amount
+              : 0,
+          unit: typeof ing.unit === "string" ? ing.unit : "",
+        }));
+      const cleanInstructions = (r as any).instructions.filter(
+        (step: any): step is string => typeof step === "string"
+      );
+      valid.push({
+        ...(r as Recipe),
+        ingredients: cleanIngredients,
+        instructions: cleanInstructions,
+      });
+    }
+    if (parsed.length > 0 && valid.length === 0) return null;
+    return valid;
+  } catch {
+    return null;
+  }
+}
+
+function readCachedMeals(): MealPlanEntry[] | null {
+  try {
+    const stored = localStorage.getItem("zest_meals");
+    if (stored === null) return null;
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return null;
+    const valid = parsed.filter(
+      (m): m is MealPlanEntry =>
+        Boolean(m) &&
+        typeof m === "object" &&
+        typeof (m as any).date === "string" &&
+        typeof (m as any).recipeId === "string"
+    );
+    if (parsed.length > 0 && valid.length === 0) return null;
+    return valid;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [mealPlan, setMealPlan] = useState<MealPlanEntry[]>([]);
+  const initialCachedRecipes = useMemo(() => readCachedRecipes(), []);
+  const initialCachedMeals = useMemo(() => readCachedMeals(), []);
+  const initiallyOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+
+  const [recipes, setRecipes] = useState<Recipe[]>(() => {
+    if (initialCachedRecipes !== null) return initialCachedRecipes;
+    return initiallyOffline ? PRESET_RECIPES : [];
+  });
+  const [mealPlan, setMealPlan] = useState<MealPlanEntry[]>(() =>
+    initialCachedMeals !== null ? initialCachedMeals : []
+  );
   const [collections, setCollections] = useState<RecipeCollection[]>(() => {
     try {
       const saved = localStorage.getItem("cookbook_collections");
@@ -128,8 +202,8 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Loading & Fallback states
-  const [loadingRecipes, setLoadingRecipes] = useState(true);
-  const [loadingMeals, setLoadingMeals] = useState(true);
+  const [loadingRecipes, setLoadingRecipes] = useState(() => initialCachedRecipes === null && !initiallyOffline);
+  const [loadingMeals, setLoadingMeals] = useState(() => initialCachedMeals === null && !initiallyOffline);
   const [isUsingLocalStorage, setIsUsingLocalStorage] = useState(false);
 
   // Theme state
@@ -206,7 +280,50 @@ export default function App() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
 
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
+  const adminModalRef = useRef<HTMLDivElement>(null);
+  const loginModalRef = useRef<HTMLDivElement>(null);
+
   useBodyScrollLock(mobileMenuOpen || (isAdminPanelOpen && isAdmin) || isLoginModalOpen);
+
+  useDialogFocusTrap(mobileMenuOpen, mobileDrawerRef, "sidebar-toggle-btn");
+  useDialogFocusTrap(isAdminPanelOpen && isAdmin, adminModalRef, "sidebar-toggle-btn");
+  useDialogFocusTrap(isLoginModalOpen, loginModalRef, "sidebar-toggle-btn");
+
+  useEffect(() => {
+    if (!mobileMenuOpen || typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    if (mq.matches) {
+      setMobileMenuOpen(false);
+      return;
+    }
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setMobileMenuOpen(false);
+    };
+    mq.addEventListener("change", handleChange);
+    return () => mq.removeEventListener("change", handleChange);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const hasAppOverlay = isLoginModalOpen || (isAdminPanelOpen && isAdmin) || mobileMenuOpen;
+    if (!hasAppOverlay || isDetailOpen || bookmarkTargetRecipe) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      if (isLoginModalOpen) {
+        setIsLoginModalOpen(false);
+        setPasscode("");
+        setAuthError(null);
+      } else if (isAdminPanelOpen && isAdmin) {
+        setIsAdminPanelOpen(false);
+        setAdminFeedback(null);
+      } else if (mobileMenuOpen) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLoginModalOpen, isAdminPanelOpen, isAdmin, mobileMenuOpen, isDetailOpen, bookmarkTargetRecipe]);
 
   useEffect(() => {
     (window as any).__COOKBOOK_VERSION__ = APP_VERSION;
@@ -346,48 +463,55 @@ export default function App() {
 
   const loadRecipesFromLocalStorage = () => {
     setIsUsingLocalStorage(true);
-    const stored = localStorage.getItem("zest_recipes");
-    let parsed: Recipe[] = [];
-    if (stored) {
-      try {
-        const raw = JSON.parse(stored);
-        if (Array.isArray(raw)) parsed = raw;
-      } catch {}
-    }
-
-    if (parsed.length > 0) {
-      setRecipes(parsed);
+    const cached = readCachedRecipes();
+    if (cached && cached.length > 0) {
+      setRecipes(cached);
     } else {
       setRecipes(PRESET_RECIPES);
-      localStorage.setItem("zest_recipes", JSON.stringify(PRESET_RECIPES));
+      try {
+        localStorage.setItem("zest_recipes", JSON.stringify(PRESET_RECIPES));
+      } catch {}
     }
     setLoadingRecipes(false);
   };
 
   const loadMealsFromLocalStorage = () => {
-    const stored = localStorage.getItem("zest_meals");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setMealPlan(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        setMealPlan([]);
-      }
-    } else {
-      setMealPlan([]);
-    }
+    const cached = readCachedMeals();
+    setMealPlan(cached ?? []);
     setLoadingMeals(false);
   };
 
   useEffect(() => {
     let unsubscribeRecipes = () => {};
     let unsubscribeMealPlan = () => {};
+    let recipesSnapshotReceived = false;
+    let mealsSnapshotReceived = false;
+
+    const fallbackTimer = setTimeout(() => {
+      if (!recipesSnapshotReceived) {
+        const cached = readCachedRecipes();
+        if (cached === null) {
+          setRecipes((prev) => (prev.length > 0 ? prev : PRESET_RECIPES));
+        }
+        setLoadingRecipes(false);
+      }
+      if (!mealsSnapshotReceived) {
+        setLoadingMeals(false);
+      }
+    }, 4000);
 
     try {
       const qRecipes = query(collection(db, "recipes"), orderBy("createdAt", "desc"));
       unsubscribeRecipes = onSnapshot(
         qRecipes,
         (snapshot) => {
+          if (snapshot.metadata.fromCache && snapshot.empty) {
+            recipesSnapshotReceived = true;
+            setRecipes((prev) => (prev.length > 0 ? prev : (readCachedRecipes() ?? PRESET_RECIPES)));
+            setLoadingRecipes(false);
+            return;
+          }
+          recipesSnapshotReceived = true;
           const list: Recipe[] = [];
           snapshot.forEach((docSnap) => {
             list.push({ id: docSnap.id, ...docSnap.data() } as Recipe);
@@ -403,6 +527,7 @@ export default function App() {
           setDbError(null);
         },
         (error: any) => {
+          recipesSnapshotReceived = true;
           if (error?.code === "permission-denied") {
             setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
           } else {
@@ -416,6 +541,12 @@ export default function App() {
       unsubscribeMealPlan = onSnapshot(
         qMeals,
         (snapshot) => {
+          if (snapshot.metadata.fromCache && snapshot.empty) {
+            mealsSnapshotReceived = true;
+            setLoadingMeals(false);
+            return;
+          }
+          mealsSnapshotReceived = true;
           const list: MealPlanEntry[] = [];
           snapshot.forEach((docSnap) => {
             list.push({ id: docSnap.id, ...docSnap.data() } as MealPlanEntry);
@@ -427,6 +558,7 @@ export default function App() {
           setLoadingMeals(false);
         },
         (error: any) => {
+          mealsSnapshotReceived = true;
           if (error?.code === "permission-denied") {
             setDbError("Database is secure but Rules are blocking access. Please update your Firestore Security Rules.");
           } else {
@@ -441,6 +573,9 @@ export default function App() {
         unsubscribeCollections = onSnapshot(
           qCollections,
           (snapshot) => {
+            if (snapshot.metadata.fromCache && snapshot.empty) {
+              return;
+            }
             const list: RecipeCollection[] = [];
             snapshot.forEach((docSnap) => {
               const data = docSnap.data() as any;
@@ -467,17 +602,21 @@ export default function App() {
       }
 
       return () => {
+        clearTimeout(fallbackTimer);
         unsubscribeRecipes();
         unsubscribeMealPlan();
         unsubscribeCollections();
       };
     } catch (err) {
+      recipesSnapshotReceived = true;
+      mealsSnapshotReceived = true;
       console.error("Firebase connections failed, defaulting to local storage.", err);
       loadRecipesFromLocalStorage();
       loadMealsFromLocalStorage();
     }
 
     return () => {
+      clearTimeout(fallbackTimer);
       unsubscribeRecipes();
       unsubscribeMealPlan();
     };
@@ -693,7 +832,10 @@ export default function App() {
         recipe.title.toLowerCase().includes(q) ||
         recipe.description?.toLowerCase().includes(q) ||
         recipe.cuisine?.toLowerCase().includes(q) ||
-        recipe.ingredients.some((i) => i.name.toLowerCase().includes(q));
+        (Array.isArray(recipe.ingredients) &&
+          recipe.ingredients.some(
+            (i) => typeof i?.name === "string" && i.name.toLowerCase().includes(q)
+          ));
 
       const matchesCuisine = filters.cuisine === "All" || recipe.cuisine === filters.cuisine;
       const matchesMealType = filters.mealType === "All" || recipe.mealType === filters.mealType;
@@ -772,20 +914,20 @@ export default function App() {
           <span className="w-9 h-9 rounded-xl bg-primary/15 border border-primary/35 text-foreground p-1.5 flex items-center justify-center shrink-0 transition-transform group-hover:scale-[1.03]">
             <CookbookLogo className="w-full h-full" />
           </span>
-          <div className="flex flex-col">
+          <span className="flex flex-col">
             <span className="font-serif text-[22px] font-semibold tracking-[-0.01em] text-foreground leading-none">
               Cookbook
             </span>
             <span className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground mt-0.5">
               Kitchen Archive
             </span>
-          </div>
+          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setMobileMenuOpen(false)}
-          className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-sidebar-accent cursor-pointer"
+          className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-sidebar-accent cursor-pointer"
           aria-label="Close navigation"
         >
           <X className="w-4 h-4" />
@@ -818,7 +960,7 @@ export default function App() {
                 <span>Meal Planner</span>
               </span>
               {mealPlan.length > 0 && (
-                <span className="text-xs font-mono tabular-nums opacity-60">{mealPlan.length}</span>
+                <span className="text-xs font-mono tabular-nums text-muted-foreground">{mealPlan.length}</span>
               )}
             </button>
 
@@ -869,7 +1011,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setIsAddingCollection((v) => !v)}
-              className="w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+              className="w-8 h-8 -mr-1 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
               title="New collection"
               aria-label="Create new collection"
             >
@@ -895,12 +1037,12 @@ export default function App() {
                 placeholder="e.g. Dinner Party"
                 maxLength={60}
                 autoFocus
-                className="flex-1 min-w-0 h-8 px-2.5 rounded-lg bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                className="flex-1 min-w-0 h-9 sm:h-8 px-2.5 rounded-lg bg-background border border-border text-base sm:text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
               />
               <button
                 type="submit"
                 disabled={!newCollectionName.trim()}
-                className="h-8 px-2.5 rounded-lg bg-foreground text-background text-[11px] font-medium hover:opacity-85 disabled:opacity-40 cursor-pointer shrink-0"
+                className="h-9 sm:h-8 px-2.5 rounded-lg bg-foreground text-background text-[11px] font-medium hover:opacity-85 disabled:opacity-40 cursor-pointer shrink-0"
               >
                 Add
               </button>
@@ -924,7 +1066,7 @@ export default function App() {
                   recipes.some((r) => r.id === id)
                 ).length;
                 return (
-                  <div key={col.id} className="group relative flex items-center">
+                  <div key={col.id} className="group flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -934,7 +1076,7 @@ export default function App() {
                         setMobileMenuOpen(false);
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className={`w-full flex items-center justify-between gap-2 h-8 px-2.5 rounded-lg text-[13px] transition-colors cursor-pointer ${
+                      className={`flex-1 min-w-0 flex items-center justify-between gap-2 h-9 sm:h-8 px-2.5 rounded-lg text-[13px] transition-colors cursor-pointer ${
                         active
                           ? "bg-sidebar-accent text-foreground font-medium"
                           : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground"
@@ -948,7 +1090,7 @@ export default function App() {
                         />
                         <span className="truncate">{col.name}</span>
                       </span>
-                      <span className="text-[11px] font-mono tabular-nums opacity-60 group-hover:opacity-0 transition-opacity">
+                      <span className="text-[11px] font-mono tabular-nums text-muted-foreground shrink-0">
                         {validCount}
                       </span>
                     </button>
@@ -958,11 +1100,11 @@ export default function App() {
                         e.stopPropagation();
                         handleDeleteCollection(col.id);
                       }}
-                      className="absolute right-1.5 w-6 h-6 rounded-md flex items-center justify-center opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 hover:bg-background transition-all cursor-pointer"
+                      className="w-8 h-8 sm:w-7 sm:h-7 rounded-md flex items-center justify-center shrink-0 opacity-70 md:opacity-0 md:pointer-events-none md:group-hover:opacity-100 md:group-hover:pointer-events-auto md:focus-visible:opacity-100 md:focus-visible:pointer-events-auto text-muted-foreground hover:text-red-500 hover:bg-background transition-all cursor-pointer"
                       title={`Delete "${col.name}"`}
                       aria-label={`Delete collection ${col.name}`}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                     </button>
                   </div>
                 );
@@ -982,14 +1124,14 @@ export default function App() {
                 key={cuisineName}
                 type="button"
                 onClick={() => applyQuickCollection({ cuisine: cuisineName })}
-                className={`w-full flex items-center justify-between h-8 px-2.5 rounded-lg text-[13px] transition-colors cursor-pointer ${
+                className={`w-full flex items-center justify-between h-9 sm:h-8 px-2.5 rounded-lg text-[13px] transition-colors cursor-pointer ${
                   currentTab === "recipes" && filters.cuisine === cuisineName
                     ? "bg-sidebar-accent text-foreground font-medium"
                     : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground"
                 }`}
               >
                 <span className="truncate">{cuisineName}</span>
-                <span className="text-[11px] font-mono tabular-nums opacity-60">{count}</span>
+                <span className="text-[11px] font-mono tabular-nums text-muted-foreground">{count}</span>
               </button>
             ))}
           </div>
@@ -997,7 +1139,7 @@ export default function App() {
       </div>
 
       {/* Bottom Utility Footer */}
-      <div className="p-3 border-t border-sidebar-border/80 space-y-1 shrink-0">
+      <div className="px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-sidebar-border/80 space-y-1 shrink-0">
         <button
           type="button"
           onClick={() => setIsDarkMode(!isDarkMode)}
@@ -1009,7 +1151,21 @@ export default function App() {
           </span>
         </button>
 
-        {!isAdmin && (
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={() => {
+              setIsAdminPanelOpen(true);
+              setMobileMenuOpen(false);
+            }}
+            className="w-full flex items-center justify-between h-9 px-2.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-sidebar-accent transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Admin &amp; Data</span>
+            </span>
+          </button>
+        ) : (
           <button
             type="button"
             onClick={() => {
@@ -1051,11 +1207,16 @@ export default function App() {
               className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
             />
             <motion.div
+              ref={mobileDrawerRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
-              className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10 border-r border-sidebar-border"
+              className="relative w-72 max-w-[85vw] h-full shadow-2xl z-10 border-r border-sidebar-border bg-sidebar pt-safe outline-none"
             >
               {renderSidebarContent()}
             </motion.div>
@@ -1087,6 +1248,7 @@ export default function App() {
         <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border/70 bg-background/90 px-4 md:px-6 backdrop-blur-md">
           {/* Sidebar Trigger */}
           <button
+            id="sidebar-toggle-btn"
             type="button"
             onClick={() => {
               if (window.innerWidth < 768) {
@@ -1100,7 +1262,7 @@ export default function App() {
                 setSidebarOpen((v) => !v);
               }
             }}
-            className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer -ml-1 shrink-0"
+            className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer -ml-1 shrink-0"
             aria-label="Toggle Sidebar"
             title={sidebarOpen ? "Collapse sidebar & show all recipes" : "Open sidebar"}
           >
@@ -1232,17 +1394,24 @@ export default function App() {
                   setEditingRecipe(null);
                   setCurrentTab("addRecipe");
                 }}
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-opacity cursor-pointer"
+                aria-label="Add recipe"
+                className="inline-flex items-center justify-center gap-1.5 h-9 w-9 sm:w-auto sm:px-4 rounded-full bg-foreground text-background hover:opacity-85 text-xs sm:text-sm font-medium transition-opacity cursor-pointer"
               >
                 <Plus className="w-4 h-4 text-primary" strokeWidth={2.5} />
-                <span className="hidden xs:inline sm:inline">Add Recipe</span>
+                <span className="hidden sm:inline">Add Recipe</span>
               </button>
             )}
           </div>
         </header>
 
         {/* Main Scrollable Content Area */}
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 pt-5 pb-24 md:pb-12">
+        <main
+          className={`flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 pt-5 md:pb-12 ${
+            isAdmin
+              ? "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]"
+              : "pb-[max(3rem,env(safe-area-inset-bottom,0px))]"
+          }`}
+        >
           <AnimatePresence mode="wait">
             {currentTab === "recipes" ? (
               <motion.div
@@ -1259,16 +1428,18 @@ export default function App() {
                   <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
+                    aria-label="Search recipes and ingredients"
                     placeholder="Search recipes, ingredients..."
                     value={filters.searchQuery}
                     onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
-                    className="w-full h-10 pl-10 pr-9 rounded-full bg-secondary text-sm text-foreground placeholder:text-muted-foreground border border-transparent focus:border-border focus:bg-background focus:outline-none"
+                    className="w-full h-10 pl-10 pr-9 rounded-full bg-secondary text-base sm:text-sm text-foreground placeholder:text-muted-foreground border border-transparent focus:border-border focus:bg-background focus:outline-none"
                   />
                   {filters.searchQuery && (
                     <button
                       type="button"
                       onClick={() => setFilters((prev) => ({ ...prev, searchQuery: "" }))}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                      aria-label="Clear search"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -1282,7 +1453,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={cycleSortOrder}
-                      className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full border border-border bg-card hover:bg-secondary text-xs font-medium text-foreground shrink-0 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 h-9 sm:h-8 px-3.5 rounded-full border border-border bg-card hover:bg-secondary text-xs font-medium text-foreground shrink-0 transition-colors cursor-pointer"
                       title="Change sort order"
                     >
                       <ArrowUpDown className="w-3 h-3 text-muted-foreground" />
@@ -1304,7 +1475,7 @@ export default function App() {
                               mealType: prev.mealType === type ? "All" : type,
                             }))
                           }
-                          className={`h-8 px-3.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${getMealTypeButtonColor(
+                          className={`h-9 sm:h-8 px-3.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${getMealTypeButtonColor(
                             type,
                             selected
                           )}`}
@@ -1318,7 +1489,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setShowMoreFilters((v) => !v)}
-                      className={`inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full border text-xs font-medium shrink-0 transition-colors cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 h-9 sm:h-8 px-3.5 rounded-full border text-xs font-medium shrink-0 transition-colors cursor-pointer ${
                         showMoreFilters || filters.cuisine !== "All"
                           ? "border-foreground bg-foreground text-background"
                           : "border-border bg-card text-foreground hover:bg-secondary"
@@ -1334,7 +1505,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setFilters(INITIAL_FILTERS)}
-                        className="h-8 px-3 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground shrink-0 cursor-pointer underline underline-offset-2"
+                        className="h-9 sm:h-8 px-3 rounded-full text-xs font-medium text-muted-foreground hover:text-foreground shrink-0 cursor-pointer underline underline-offset-2"
                       >
                         Clear all
                       </button>
@@ -1359,7 +1530,7 @@ export default function App() {
                                 key={c}
                                 type="button"
                                 onClick={() => setFilters((prev) => ({ ...prev, cuisine: c }))}
-                                className={`h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                                className={`h-8 sm:h-7 px-3 rounded-full text-xs font-medium transition-colors cursor-pointer ${
                                   selected
                                     ? "bg-foreground text-background"
                                     : "bg-secondary/80 text-muted-foreground hover:text-foreground"
@@ -1603,6 +1774,7 @@ export default function App() {
         recipe={activeRecipe}
         isAdmin={isAdmin}
         isBookmarked={!!activeRecipe?.id && bookmarkedRecipeIds.has(activeRecipe.id)}
+        isSuspended={Boolean(bookmarkTargetRecipe)}
         onBookmark={(r) => setBookmarkTargetRecipe(r)}
         onClose={() => {
           setIsDetailOpen(false);
@@ -1624,7 +1796,10 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar (Admin) */}
       {isAdmin && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-md border-t border-border px-2 py-2 pb-safe flex items-center justify-around z-40">
+        <nav
+          aria-label="Primary mobile navigation"
+          className="md:hidden fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-md border-t border-border px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] flex items-center justify-around z-40"
+        >
           {[
             { id: "recipes", label: "Recipes", Icon: BookOpen },
             { id: "mealPlan", label: "Planner", Icon: Calendar },
@@ -1659,17 +1834,27 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => {
+              setIsAdminPanelOpen(false);
+              setAdminFeedback(null);
+            }}
             className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-50 flex items-center justify-center p-4"
           >
             <motion.div
+              ref={adminModalRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Admin and Data Control"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain outline-none"
             >
               <div className="p-6 space-y-5">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-semibold text-foreground tracking-tight">
@@ -1689,7 +1874,8 @@ export default function App() {
                       setIsAdminPanelOpen(false);
                       setAdminFeedback(null);
                     }}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer shrink-0"
+                    aria-label="Close admin panel"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1759,7 +1945,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 hover:underline cursor-pointer font-medium"
+                    className="flex items-center gap-1.5 py-2 -my-1 text-xs text-red-600 dark:text-red-400 hover:underline cursor-pointer font-medium"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>
@@ -1786,14 +1972,25 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => {
+              setIsLoginModalOpen(false);
+              setPasscode("");
+              setAuthError(null);
+            }}
             className="fixed inset-0 bg-black/50 backdrop-blur-[2px] z-50 flex items-center justify-center p-4"
           >
             <motion.div
+              ref={loginModalRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Chef Sign In"
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               transition={{ duration: 0.2 }}
-              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+              className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain outline-none"
             >
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-foreground tracking-tight mb-1">
@@ -1809,7 +2006,7 @@ export default function App() {
                     value={passcode}
                     onChange={(e) => setPasscode(e.target.value)}
                     placeholder="Enter passcode..."
-                    className="w-full h-11 px-4 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    className="w-full h-11 px-4 rounded-xl border border-border bg-background text-foreground text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
                     autoFocus
                   />
                   <div className="flex justify-end gap-2">
@@ -1846,7 +2043,7 @@ export default function App() {
       </AnimatePresence>
 
       <PWAInstallPopup />
-      <OfflineIndicator />
+      <OfflineIndicator hasBottomNav={isAdmin} />
     </div>
   );
 }

@@ -120,11 +120,85 @@ export default function CookingMode({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const stageScrollRef = useRef<HTMLDivElement>(null);
+  const ingredientsDrawerRef = useRef<HTMLDivElement>(null);
+  const ingredientsBtnRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const wasIngredientsOpenRef = useRef(false);
+  const isFinishedRef = useRef(isFinished);
+  isFinishedRef.current = isFinished;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     setCollapsedIngredientGroups(new Set());
-  }, [recipe.id, isOpen]);
+    setCurrentStep(0);
+    setIsFinished(false);
+    setShowIngredients(false);
+  }, [recipe.id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCollapsedIngredientGroups(new Set());
+    setShowIngredients(false);
+    if (isFinishedRef.current) {
+      setIsFinished(false);
+      setCurrentStep(0);
+    }
+    if (stageScrollRef.current) {
+      stageScrollRef.current.scrollTop = 0;
+    }
+  }, [isOpen]);
 
   useBodyScrollLock(isOpen);
+
+  // Move focus into CookingMode dialog on open and restore safely on close
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const timer = setTimeout(() => {
+      const overlay = overlayRef.current;
+      if (!overlay) return;
+      const firstFocusable = overlay.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      (firstFocusable || overlay).focus();
+    }, 30);
+
+    return () => {
+      clearTimeout(timer);
+      const prev = previousFocusRef.current;
+      if (prev && typeof prev.focus === "function" && document.contains(prev) && prev.offsetParent !== null) {
+        prev.focus();
+      } else {
+        document.getElementById("recipe-modal-overlay")?.focus();
+      }
+    };
+  }, [isOpen]);
+
+  // Focus management for slide-over Ingredients drawer
+  useEffect(() => {
+    if (!isOpen) {
+      wasIngredientsOpenRef.current = false;
+      return;
+    }
+    if (showIngredients) {
+      wasIngredientsOpenRef.current = true;
+      const timer = setTimeout(() => {
+        const drawer = ingredientsDrawerRef.current;
+        if (!drawer) return;
+        const firstFocusable = drawer.querySelector<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        (firstFocusable || drawer).focus();
+      }, 30);
+      return () => clearTimeout(timer);
+    } else if (wasIngredientsOpenRef.current) {
+      wasIngredientsOpenRef.current = false;
+      ingredientsBtnRef.current?.focus();
+    }
+  }, [isOpen, showIngredients]);
 
   const parsedMethod = useMemo(
     () => parseInstructionChapters(recipe.instructions),
@@ -248,14 +322,53 @@ export default function CookingMode({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "Escape") {
+        e.preventDefault();
         if (showIngredients) setShowIngredients(false);
-        else onClose();
-      } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+        else onCloseRef.current();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const scope = showIngredients ? ingredientsDrawerRef.current : overlayRef.current;
+        if (!scope) return;
+        const focusables = (
+          Array.from(
+            scope.querySelectorAll(
+              'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )
+          ) as HTMLElement[]
+        ).filter((el) => el.offsetParent !== null);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (!active || active === first || !scope.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (!active || active === last || !scope.contains(active)) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+
+      // Do not hijack step navigation while the Ingredients drawer is open
+      if (showIngredients) return;
+
+      const targetEl = e.target instanceof HTMLElement ? e.target : null;
+      if (targetEl?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+      if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
         handlePrev();
-      } else if (e.key === "ArrowDown" || e.key === "ArrowRight" || e.key === " ") {
+      } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === " ") {
+        if (targetEl?.closest('button, a, input, textarea, select, [role="button"]')) return;
         e.preventDefault();
         handleNext();
       }
@@ -264,19 +377,32 @@ export default function CookingMode({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, currentStep, totalSteps, showIngredients, isFinished]);
 
-  const touchStartX = useRef<number | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (showIngredients) return;
-    touchStartX.current = e.touches[0].clientX;
+    if (showIngredients || e.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
   };
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || showIngredients) return;
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(deltaX) > 55) {
+    if (!touchStartRef.current || showIngredients || e.changedTouches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    if (Math.abs(deltaX) > 65 && Math.abs(deltaX) > Math.abs(deltaY) * 1.6) {
       if (deltaX < 0) handleNext();
       else handlePrev();
     }
-    touchStartX.current = null;
+  };
+  const handleTouchCancel = () => {
+    touchStartRef.current = null;
   };
 
   const toggleFullscreen = () => {
@@ -306,10 +432,13 @@ export default function CookingMode({
 
   return (
     <div
+      ref={overlayRef}
       id="cooking-mode-overlay"
-      className="fixed inset-0 z-[60] flex flex-col bg-background text-foreground select-none overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Cooking mode: ${recipe.title}`}
+      tabIndex={-1}
+      className="fixed inset-0 h-dvh z-[60] flex flex-col bg-background text-foreground select-none overflow-hidden pt-safe outline-none"
     >
       {/* Ultra-crisp Top Linear Progress Bar */}
       <div className="h-1 w-full bg-secondary shrink-0">
@@ -322,31 +451,32 @@ export default function CookingMode({
       </div>
 
       {/* Top Header */}
-      <header className="h-16 px-4 sm:px-6 border-b border-border/80 flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="min-h-14 sm:min-h-16 py-2 px-3 sm:px-6 border-b border-border/80 flex items-center justify-between gap-2 sm:gap-4 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0">
           <button
             type="button"
             onClick={onClose}
-            className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shrink-0"
+            className="w-10 h-10 sm:w-9 sm:h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer shrink-0"
             title="Exit Let's Cook Mode (Esc)"
+            aria-label="Exit cooking mode"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                <span className="w-2 h-2 rounded-full bg-primary" />
-                Let&apos;s Cook
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] sm:text-xs text-muted-foreground leading-tight">
+              <span className="inline-flex items-center gap-1.5 font-medium text-foreground whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                <span>Let&apos;s Cook</span>
               </span>
-              <span>·</span>
-              <span className="tabular-nums">
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums whitespace-nowrap">
                 {servings} {servings === 1 ? "serving" : "servings"}
               </span>
               {schedule && (
                 <>
-                  <span>·</span>
-                  <span className="font-mono text-primary-dark dark:text-primary tabular-nums">
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono text-primary-dark dark:text-primary tabular-nums whitespace-nowrap">
                     Ready{" "}
                     {schedule.finishDayPrefix ? `${schedule.finishDayPrefix} ` : ""}
                     {formatClockTime(schedule.finishTime)}
@@ -354,7 +484,7 @@ export default function CookingMode({
                 </>
               )}
             </div>
-            <h2 className="text-sm font-medium text-muted-foreground truncate max-w-[200px] sm:max-w-md">
+            <h2 className="text-sm font-medium text-muted-foreground truncate mt-0.5">
               {recipe.title}
             </h2>
           </div>
@@ -362,17 +492,18 @@ export default function CookingMode({
 
         <div className="flex items-center gap-2 shrink-0">
           <button
+            ref={ingredientsBtnRef}
             type="button"
             onClick={() => setShowIngredients(!showIngredients)}
-            className={`h-9 px-3.5 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`h-9 px-2.5 sm:px-3.5 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
               showIngredients
                 ? "bg-foreground text-background border-foreground"
                 : "border-border text-foreground hover:bg-secondary"
             }`}
           >
-            <ListChecks className="w-3.5 h-3.5" />
+            <ListChecks className="w-3.5 h-3.5 shrink-0" />
             <span>Ingredients</span>
-            <span className="font-mono text-[11px] opacity-70">{recipe.ingredients.length}</span>
+            <span className="font-mono text-[11px] opacity-70 tabular-nums">{recipe.ingredients.length}</span>
           </button>
 
           <button
@@ -380,237 +511,264 @@ export default function CookingMode({
             onClick={toggleFullscreen}
             className="hidden sm:flex w-9 h-9 rounded-full border border-border items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
       </header>
 
-      {/* Main Step Stage */}
-      <div className="flex-1 flex flex-col justify-center max-w-3xl w-full mx-auto px-5 sm:px-8 py-6 overflow-y-auto">
-        <AnimatePresence mode="wait" initial={false}>
-          {!isFinished ? (
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: direction * 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -direction * 24 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="space-y-8"
-            >
-              {/* Step Counter & Mark Complete Pill */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {activeStepMeta && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary-dark dark:text-primary text-xs font-semibold">
-                      <span className="font-mono text-[10px] uppercase tracking-wider opacity-80">
-                        Part {activeStepMeta.chapterNumber}
-                      </span>
-                      <span className="opacity-40">·</span>
-                      <span>{activeStepMeta.chapterTitle}</span>
-                    </span>
-                  )}
-                  <span className="font-mono text-xs font-medium uppercase tracking-widest text-muted-foreground tabular-nums">
-                    Step {currentStep + 1} of {totalSteps}
-                  </span>
-                  {currentStepTiming && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-secondary/60 text-xs font-mono font-medium text-foreground tabular-nums">
-                      <Clock className="w-3 h-3 text-primary-dark dark:text-primary" />
-                      <span>
-                        {currentStepTiming.isServeStep
-                          ? `Ready · ${currentStepTiming.dayPrefix ? `${currentStepTiming.dayPrefix} · ` : ""}${currentStepTiming.formattedStart}`
-                          : `Start ${currentStepTiming.dayPrefix ? `${currentStepTiming.dayPrefix} · ` : ""}${currentStepTiming.formattedStart}`}
-                      </span>
-                      {currentStepTiming.durationMinutes > 0 && (
-                        <span className="text-muted-foreground">
-                          · {currentStepTiming.isExplicit && !currentStepTiming.isOvernightEstimate ? "" : "~"}
-                          {formatDurationShort(currentStepTiming.durationMinutes)}
+      {/* Main Step Stage — safe flex centering (my-auto on inner wrapper prevents top clipping when overflowing) */}
+      <div
+        ref={stageScrollRef}
+        className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden overscroll-contain flex flex-col touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+      >
+        <div className="my-auto shrink-0 w-full max-w-3xl mx-auto px-4 sm:px-8 py-5 sm:py-6">
+          <AnimatePresence
+            mode="wait"
+            initial={false}
+            onExitComplete={() => {
+              if (stageScrollRef.current) {
+                stageScrollRef.current.scrollTop = 0;
+              }
+            }}
+          >
+            {!isFinished ? (
+              <motion.div
+                key={currentStep}
+                initial={{ opacity: 0, x: direction * 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -direction * 24 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="space-y-5 sm:space-y-8"
+              >
+                {/* Step Counter & Mark Complete Pill */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 min-w-0">
+                    {activeStepMeta && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-accent-700 dark:text-primary text-xs font-semibold max-w-full">
+                        <span className="font-mono text-[10px] uppercase tracking-wider shrink-0">
+                          Part {activeStepMeta.chapterNumber}
                         </span>
-                      )}
+                        <span className="opacity-50 shrink-0">·</span>
+                        <span className="truncate">{activeStepMeta.chapterTitle}</span>
+                      </span>
+                    )}
+                    <span className="font-mono text-xs font-medium uppercase tracking-widest text-muted-foreground tabular-nums">
+                      Step {currentStep + 1} of {totalSteps}
                     </span>
-                  )}
+                    {currentStepTiming && (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-secondary/60 text-xs font-mono font-medium text-foreground tabular-nums">
+                        <Clock className="w-3 h-3 text-primary-dark dark:text-primary shrink-0" />
+                        <span>
+                          {currentStepTiming.isServeStep
+                            ? `Ready · ${currentStepTiming.dayPrefix ? `${currentStepTiming.dayPrefix} · ` : ""}${currentStepTiming.formattedStart}`
+                            : `Start ${currentStepTiming.dayPrefix ? `${currentStepTiming.dayPrefix} · ` : ""}${currentStepTiming.formattedStart}`}
+                        </span>
+                        {currentStepTiming.durationMinutes > 0 && (
+                          <span className="text-muted-foreground">
+                            · {currentStepTiming.isExplicit && !currentStepTiming.isOvernightEstimate ? "" : "~"}
+                            {formatDurationShort(currentStepTiming.durationMinutes)}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onToggleStepComplete(currentStep)}
+                    className={`h-9 px-3.5 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                      isCurrentCompleted
+                        ? "bg-primary/15 border-primary text-foreground"
+                        : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    <Check className={`w-3.5 h-3.5 ${isCurrentCompleted ? "text-primary-dark" : ""}`} strokeWidth={2.5} />
+                    <span>{isCurrentCompleted ? "Completed" : "Mark step done"}</span>
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => onToggleStepComplete(currentStep)}
-                  className={`h-8 px-3.5 rounded-full border text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isCurrentCompleted
-                      ? "bg-primary/15 border-primary text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <Check className={`w-3.5 h-3.5 ${isCurrentCompleted ? "text-primary-dark" : ""}`} strokeWidth={2.5} />
-                  <span>{isCurrentCompleted ? "Completed" : "Mark step done"}</span>
-                </button>
-              </div>
+                {/* Instruction Copy */}
+                <p className="text-[22px] sm:text-3xl md:text-4xl font-medium text-foreground leading-[1.35] tracking-[-0.02em] break-words">
+                  {currentInstruction}
+                </p>
 
-              {/* Instruction Copy */}
-              <p className="text-2xl sm:text-3xl md:text-4xl font-medium text-foreground leading-[1.35] tracking-[-0.02em]">
-                {currentInstruction}
-              </p>
-
-              {/* Step-Relevant Ingredients (Cook Well Signature Feature) */}
-              {stepIngredients.length > 0 && (
-                <div className="space-y-2.5 pt-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Ingredients in this step
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {stepIngredients.map(({ ing, idx, displayName }) => {
-                      const done = completedIngredients.has(idx);
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => onToggleIngredientComplete(idx)}
-                          className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs sm:text-sm transition-all cursor-pointer ${
-                            done
-                              ? "border-primary/40 bg-primary/10 text-muted-foreground line-through"
-                              : "border-border bg-secondary/60 text-foreground hover:border-foreground/30"
-                          }`}
-                        >
-                          <span
-                            className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border ${
-                              done ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"
+                {/* Step-Relevant Ingredients (Cook Well Signature Feature) */}
+                {stepIngredients.length > 0 && (
+                  <div className="space-y-2.5 pt-1 sm:pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Ingredients in this step
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {stepIngredients.map(({ ing, idx, displayName }) => {
+                        const done = completedIngredients.has(idx);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            aria-pressed={done}
+                            onClick={() => onToggleIngredientComplete(idx)}
+                            className={`inline-flex items-center gap-2 rounded-2xl sm:rounded-full border px-3.5 py-2 min-h-10 sm:min-h-9 text-xs sm:text-sm max-w-full text-left transition-all cursor-pointer ${
+                              done
+                                ? "border-primary/40 bg-primary/10 text-muted-foreground line-through"
+                                : "border-border bg-secondary/60 text-foreground hover:border-foreground/30"
                             }`}
                           >
-                            {done && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
-                          </span>
-                          <span className="font-medium">{displayName}</span>
-                          {(ing.amount > 0 || ing.unit) && (
-                            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                              {formatAmount(ing.amount)} {ing.unit}
+                            <span
+                              className={`w-3.5 h-3.5 rounded-full shrink-0 flex items-center justify-center border ${
+                                done ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"
+                              }`}
+                            >
+                              {done && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
                             </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Built-in Step Timer Pill */}
-              {initialTime !== null && (
-                <div className="pt-2">
-                  <div className="inline-flex items-center gap-4 rounded-full border border-border bg-secondary/50 pl-4 pr-2.5 py-2">
-                    <div className="flex items-center gap-2.5">
-                      <Clock className={`w-4 h-4 ${timerRunning ? "text-primary-dark animate-pulse" : "text-muted-foreground"}`} />
-                      <span
-                        className={`font-mono text-xl font-semibold tabular-nums ${
-                          timeLeft === 0 ? "text-red-500" : "text-foreground"
-                        }`}
-                      >
-                        {formatTimerSeconds(timeLeft)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {timerRunning ? (
-                        <button
-                          type="button"
-                          onClick={() => setTimerRunning(false)}
-                          className="h-9 px-4 rounded-full bg-foreground text-background text-xs font-medium flex items-center gap-1.5 cursor-pointer hover:opacity-85"
-                        >
-                          <Pause className="w-3.5 h-3.5 fill-current" />
-                          <span>Pause</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (timeLeft === 0) setTimeLeft(initialTime || 0);
-                            setTimerRunning(true);
-                          }}
-                          className="h-9 px-4 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-pointer hover:brightness-95"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>{timeLeft === 0 ? "Restart" : timeLeft < initialTime ? "Resume" : "Start Timer"}</span>
-                        </button>
-                      )}
-
-                      {timeLeft !== initialTime && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setTimerRunning(false);
-                            setTimeLeft(initialTime || 0);
-                          }}
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
-                          title="Reset timer"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
-                      )}
+                            <span className="font-medium min-w-0 break-words">{displayName}</span>
+                            {(ing.amount > 0 || ing.unit) && (
+                              <span className="font-mono text-xs text-muted-foreground tabular-nums shrink-0">
+                                {formatAmount(ing.amount)} {ing.unit}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
+                )}
+
+                {/* Built-in Step Timer Pill */}
+                {initialTime !== null && (
+                  <div className="pt-1 sm:pt-2">
+                    <div className="inline-flex flex-wrap items-center gap-3 sm:gap-4 rounded-2xl sm:rounded-full border border-border bg-secondary/50 pl-4 pr-2.5 py-2 max-w-full">
+                      <div className="flex items-center gap-2.5">
+                        <Clock className={`w-4 h-4 shrink-0 ${timerRunning ? "text-primary-dark animate-pulse" : "text-muted-foreground"}`} />
+                        <span
+                          className={`font-mono text-xl font-semibold tabular-nums ${
+                            timeLeft === 0 ? "text-red-500" : "text-foreground"
+                          }`}
+                        >
+                          {formatTimerSeconds(timeLeft)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {timerRunning ? (
+                          <button
+                            type="button"
+                            onClick={() => setTimerRunning(false)}
+                            className="h-9 px-4 rounded-full bg-foreground text-background text-xs font-medium flex items-center gap-1.5 cursor-pointer hover:opacity-85"
+                          >
+                            <Pause className="w-3.5 h-3.5 fill-current" />
+                            <span>Pause</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (timeLeft === 0) setTimeLeft(initialTime || 0);
+                              setTimerRunning(true);
+                            }}
+                            className="h-9 px-4 rounded-full bg-primary-dark text-primary-foreground dark:bg-primary dark:text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-pointer hover:brightness-95"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>{timeLeft === 0 ? "Restart" : timeLeft < initialTime ? "Resume" : "Start Timer"}</span>
+                          </button>
+                        )}
+
+                        {timeLeft !== initialTime && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTimerRunning(false);
+                              setTimeLeft(initialTime || 0);
+                            }}
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                            title="Reset timer"
+                            aria-label="Reset timer"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="celebration"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.25 }}
+                className="text-center max-w-md mx-auto space-y-6"
+              >
+                <div className="w-16 h-16 rounded-full bg-primary/15 border border-primary/30 text-primary-dark flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
                 </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="celebration"
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.25 }}
-              className="text-center max-w-md mx-auto space-y-6"
-            >
-              <div className="w-16 h-16 rounded-full bg-primary/15 border border-primary/30 text-primary-dark flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  All {totalSteps} steps complete
-                </p>
-                <h3 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
-                  Time to eat.
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  You finished cooking <span className="text-foreground font-medium">{recipe.title}</span>.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsFinished(false);
-                    setCurrentStep(0);
-                  }}
-                  className="h-11 px-5 rounded-full border border-border text-sm font-medium text-foreground hover:bg-secondary flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Start Over</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-85 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Utensils className="w-4 h-4" />
-                  <span>Back to Recipe</span>
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    All {totalSteps} steps complete
+                  </p>
+                  <h3 className="font-serif text-4xl font-semibold tracking-tight text-foreground">
+                    Time to eat.
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    You finished cooking <span className="text-foreground font-medium">{recipe.title}</span>.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2.5 justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsFinished(false);
+                      setCurrentStep(0);
+                    }}
+                    className="h-11 px-5 rounded-full border border-border text-sm font-medium text-foreground hover:bg-secondary flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Start Over</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-85 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Utensils className="w-4 h-4" />
+                    <span>Back to Recipe</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Bottom Step Navigation Bar */}
-      <footer className="border-t border-border/80 px-4 sm:px-6 py-4 shrink-0 bg-background">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+      <footer className="border-t border-border/80 px-3 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:py-4 shrink-0 bg-background">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
           <button
             type="button"
             onClick={handlePrev}
             disabled={currentStep === 0 && !isFinished}
-            className="h-11 px-4 sm:px-5 rounded-full border border-border text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="h-11 px-3.5 sm:px-5 rounded-full border border-border text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-30 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Previous</span>
+            <ChevronLeft className="w-4 h-4 shrink-0" />
+            <span className="sm:hidden">Prev</span>
+            <span className="hidden sm:inline">Previous</span>
           </button>
 
-          {/* Compact Step Dots */}
-          <div className="hidden sm:flex items-center gap-1.5">
+          {/* Compact Mobile Step Counter */}
+          {!isFinished && totalSteps > 0 && (
+            <span className="sm:hidden font-mono text-xs font-medium text-muted-foreground tabular-nums whitespace-nowrap">
+              {currentStep + 1} / {totalSteps}
+            </span>
+          )}
+
+          {/* Compact Step Dots (Tablet/Desktop) with touch-friendly hit area */}
+          <div className="hidden sm:flex items-center flex-wrap justify-center">
             {recipe.instructions.map((_, idx) => {
               const active = !isFinished && idx === currentStep;
               const done = completedSteps.has(idx);
@@ -623,15 +781,20 @@ export default function CookingMode({
                     setDirection(idx > currentStep ? 1 : -1);
                     setCurrentStep(idx);
                   }}
-                  className={`h-2 rounded-full transition-all cursor-pointer ${
-                    active
-                      ? "w-6 bg-foreground"
-                      : done
-                      ? "w-2 bg-primary"
-                      : "w-2 bg-border hover:bg-muted-foreground/50"
-                  }`}
+                  className="p-2 -my-1.5 inline-flex items-center justify-center cursor-pointer group"
                   title={`Step ${idx + 1}`}
-                />
+                  aria-label={`Go to step ${idx + 1}`}
+                >
+                  <span
+                    className={`block h-2 rounded-full transition-all ${
+                      active
+                        ? "w-6 bg-foreground"
+                        : done
+                        ? "w-2 bg-primary"
+                        : "w-2 bg-border group-hover:bg-muted-foreground/50"
+                    }`}
+                  />
+                </button>
               );
             })}
           </div>
@@ -640,20 +803,27 @@ export default function CookingMode({
             <button
               type="button"
               onClick={handleNext}
-              className="h-11 px-5 sm:px-6 rounded-full bg-foreground text-background hover:opacity-85 text-sm font-medium transition-opacity flex items-center gap-1.5 cursor-pointer"
+              className="h-11 px-4 sm:px-6 rounded-full bg-foreground text-background hover:opacity-85 text-sm font-medium transition-opacity flex items-center gap-1.5 cursor-pointer shrink-0"
             >
-              <span>{currentStep === totalSteps - 1 ? "Finish" : "Next Step"}</span>
               {currentStep === totalSteps - 1 ? (
-                <Check className="w-4 h-4 text-primary" strokeWidth={2.5} />
+                <span>Finish</span>
               ) : (
-                <ChevronRight className="w-4 h-4" />
+                <>
+                  <span className="sm:hidden">Next</span>
+                  <span className="hidden sm:inline">Next Step</span>
+                </>
+              )}
+              {currentStep === totalSteps - 1 ? (
+                <Check className="w-4 h-4 text-primary shrink-0" strokeWidth={2.5} />
+              ) : (
+                <ChevronRight className="w-4 h-4 shrink-0" />
               )}
             </button>
           ) : (
             <button
               type="button"
               onClick={onClose}
-              className="h-11 px-6 rounded-full bg-foreground text-background hover:opacity-85 text-sm font-medium cursor-pointer"
+              className="h-11 px-6 rounded-full bg-foreground text-background hover:opacity-85 text-sm font-medium cursor-pointer shrink-0"
             >
               Done
             </button>
@@ -673,20 +843,25 @@ export default function CookingMode({
               className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             />
             <motion.div
+              ref={ingredientsDrawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label="All ingredients"
+              tabIndex={-1}
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
-              className="relative w-full max-w-md bg-background border-l border-border h-full shadow-2xl flex flex-col z-10"
+              className="relative w-full max-w-md bg-background border-l border-border h-full shadow-2xl flex flex-col z-10 pt-safe outline-none"
             >
-              <div className="h-16 px-5 border-b border-border flex items-center justify-between gap-2">
-                <div>
+              <div className="min-h-14 sm:min-h-16 py-2 px-5 border-b border-border flex items-center justify-between gap-2 shrink-0">
+                <div className="min-w-0">
                   <h3 className="text-sm font-semibold text-foreground">All Ingredients</h3>
                   <p className="text-xs text-muted-foreground">
                     Scaled for {servings} {servings === 1 ? "serving" : "servings"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {parsedIngredients.isGrouped && (
                     <button
                       type="button"
@@ -702,7 +877,7 @@ export default function CookingMode({
                           );
                         }
                       }}
-                      className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer px-2 py-1 rounded-full hover:bg-secondary"
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer px-2.5 py-2 rounded-full hover:bg-secondary"
                     >
                       {collapsedIngredientGroups.size ===
                       parsedIngredients.groups.length
@@ -713,14 +888,15 @@ export default function CookingMode({
                   <button
                     type="button"
                     onClick={() => setShowIngredients(false)}
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                    aria-label="Close ingredients"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-3">
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
                 {(() => {
                   const renderDrawerRow = (
                     ing: Recipe["ingredients"][number],
@@ -729,28 +905,31 @@ export default function CookingMode({
                   ) => {
                     const isDone = completedIngredients.has(idx);
                     return (
-                      <li
-                        key={idx}
-                        onClick={() => onToggleIngredientComplete(idx)}
-                        className="flex items-center justify-between gap-3 py-3.5 cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span
-                            className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
-                              isDone
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "border-neutral-300 dark:border-neutral-600"
-                            }`}
-                          >
-                            {isDone && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                      <li key={idx}>
+                        <button
+                          type="button"
+                          aria-pressed={isDone}
+                          onClick={() => onToggleIngredientComplete(idx)}
+                          className="w-full flex items-center justify-between gap-3 py-3.5 text-left cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]"
+                        >
+                          <span className="flex items-center gap-3 min-w-0">
+                            <span
+                              className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                isDone
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "border-neutral-300 dark:border-neutral-600"
+                              }`}
+                            >
+                              {isDone && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
+                            </span>
+                            <span className={`text-sm break-words ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                              {displayName}
+                            </span>
                           </span>
-                          <span className={`text-sm ${isDone ? "line-through text-muted-foreground/60" : "text-foreground"}`}>
-                            {displayName}
+                          <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
+                            {formatAmount(ing.amount)} {ing.unit}
                           </span>
-                        </div>
-                        <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">
-                          {formatAmount(ing.amount)} {ing.unit}
-                        </span>
+                        </button>
                       </li>
                     );
                   };

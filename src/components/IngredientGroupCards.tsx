@@ -65,7 +65,7 @@ export default function IngredientGroupCards({
                 {group.title}
               </span>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <span className="flex items-center gap-2 shrink-0">
                 <span
                   className={`inline-flex items-center gap-1 text-[11px] font-mono tabular-nums px-2 py-0.5 rounded-full border transition-colors ${
                     isGroupDone
@@ -89,7 +89,7 @@ export default function IngredientGroupCards({
                     isCollapsed ? "-rotate-90" : ""
                   }`}
                 />
-              </div>
+              </span>
             </button>
 
             {/* Collapsible Ingredient Rows */}
@@ -124,7 +124,7 @@ export default function IngredientGroupCards({
                               compact ? "px-3.5 py-2.5" : "px-3.5 py-2.5"
                             } text-left group hover:bg-secondary/45 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]`}
                           >
-                            <div className="flex items-center gap-3 min-w-0">
+                            <span className="flex items-center gap-3 min-w-0">
                               <span
                                 className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
                                   isCompleted
@@ -137,21 +137,21 @@ export default function IngredientGroupCards({
                                 )}
                               </span>
                               <span
-                                className={`text-sm leading-snug transition-colors ${
+                                className={`text-sm leading-snug break-words transition-colors ${
                                   isCompleted
-                                    ? "line-through text-muted-foreground/60"
+                                    ? "line-through text-muted-foreground"
                                     : "text-foreground"
                                 }`}
                               >
                                 {label}
                               </span>
-                            </div>
+                            </span>
 
                             {qtyText && (
                               <span
                                 className={`font-mono text-xs font-semibold tabular-nums text-right shrink-0 ${
                                   isCompleted
-                                    ? "text-muted-foreground/50"
+                                    ? "text-muted-foreground"
                                     : "text-foreground/85"
                                 }`}
                               >

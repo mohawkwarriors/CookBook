@@ -107,16 +107,25 @@ export default function InstructionStep({
 
   return (
     <motion.div
-      className={`group cursor-pointer w-full rounded-2xl transition-colors ${
+      role="button"
+      tabIndex={0}
+      aria-pressed={isCompleted}
+      className={`group cursor-pointer rounded-2xl transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
         isParallel
-          ? "p-4 border border-border bg-secondary/40 hover:bg-secondary/70"
+          ? "w-full p-4 border border-border bg-secondary/40 hover:bg-secondary/70"
           : inCard
-          ? "py-3.5 px-3 hover:bg-secondary/50"
+          ? "w-full py-3.5 px-3 hover:bg-secondary/50"
           : "py-4 px-3 -mx-3 hover:bg-secondary/50"
       }`}
       onClick={() => {
         if (window.getSelection()?.toString()) return;
         onToggleComplete();
+      }}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onToggleComplete();
+        }
       }}
       whileTap={{ scale: 0.996 }}
     >
@@ -145,7 +154,7 @@ export default function InstructionStep({
                 <span
                   className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-mono font-medium tabular-nums transition-colors ${
                     isCompleted
-                      ? "border-border/60 bg-secondary/40 text-muted-foreground/60 line-through"
+                      ? "border-border/60 bg-secondary/40 text-muted-foreground line-through"
                       : scheduledTiming.isNextUp
                       ? "border-primary/40 bg-primary/15 text-primary-dark dark:text-primary font-semibold"
                       : "border-border bg-card text-foreground"
@@ -158,7 +167,7 @@ export default function InstructionStep({
                       : `Start ${scheduledTiming.dayPrefix ? `${scheduledTiming.dayPrefix} · ` : ""}${scheduledTiming.formattedStart}`}
                   </span>
                   {scheduledTiming.durationMinutes > 0 && (
-                    <span className="opacity-65">
+                    <span className="opacity-80">
                       · {scheduledTiming.isExplicit && !scheduledTiming.isOvernightEstimate ? "" : "~"}
                       {formatDurationShort(scheduledTiming.durationMinutes)}
                     </span>
@@ -173,9 +182,9 @@ export default function InstructionStep({
             </div>
           )}
           <p
-            className={`text-[15px] leading-relaxed transition-colors ${
+            className={`text-[15px] leading-relaxed break-words transition-colors ${
               isCompleted
-                ? "text-muted-foreground/60 line-through"
+                ? "text-muted-foreground line-through"
                 : "text-foreground/90"
             }`}
           >
@@ -208,19 +217,21 @@ export default function InstructionStep({
                   <button
                     type="button"
                     onClick={handlePause}
-                    className="w-6 h-6 rounded-full bg-foreground text-background flex items-center justify-center hover:opacity-85 transition-opacity cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-foreground text-background flex items-center justify-center hover:opacity-85 transition-opacity cursor-pointer"
                     title="Pause timer"
+                    aria-label="Pause timer"
                   >
-                    <Pause className="w-3 h-3 fill-current" />
+                    <Pause className="w-3.5 h-3.5 fill-current" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleStart}
-                    className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:brightness-95 transition-all cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-primary-dark text-primary-foreground dark:bg-primary dark:text-primary-foreground flex items-center justify-center hover:brightness-95 transition-all cursor-pointer"
                     title={timeLeft === initialTime ? "Start timer" : "Resume timer"}
+                    aria-label={timeLeft === initialTime ? "Start timer" : "Resume timer"}
                   >
-                    <Play className="w-3 h-3 fill-current ml-0.5" />
+                    <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                   </button>
                 )}
 
@@ -228,10 +239,11 @@ export default function InstructionStep({
                   <button
                     type="button"
                     onClick={handleStop}
-                    className="w-6 h-6 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"
+                    className="w-8 h-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors cursor-pointer"
                     title="Reset timer"
+                    aria-label="Reset timer"
                   >
-                    <RotateCcw className="w-3 h-3" />
+                    <RotateCcw className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

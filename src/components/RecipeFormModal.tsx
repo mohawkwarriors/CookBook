@@ -474,7 +474,7 @@ export default function RecipeFormModal({
       if (controller.signal.aborted || err?.name === "AbortError") {
         return;
       }
-      console.error("Scraping error:", err);
+      console.warn("Scraping error:", err);
       const rawMsg = typeof err?.message === "string" ? err.message : "";
       const isNetworkErr =
         err instanceof TypeError || /failed to fetch|networkerror|load failed/i.test(rawMsg);
@@ -619,10 +619,10 @@ export default function RecipeFormModal({
             className="inline-flex items-center p-1 rounded-full bg-secondary border border-border/60 w-full sm:w-auto"
           >
             {[
-              { id: "search", label: "Discover", Icon: Search },
-              { id: "scraper", label: "Import URL", Icon: Link2 },
-              { id: "manual", label: "Write Manually", Icon: PenTool },
-            ].map(({ id, label, Icon }) => {
+              { id: "search", label: "Discover", mobileLabel: "Discover", Icon: Search },
+              { id: "scraper", label: "Import URL", mobileLabel: "URL", Icon: Link2 },
+              { id: "manual", label: "Write Manually", mobileLabel: "Manual", Icon: PenTool },
+            ].map(({ id, label, mobileLabel, Icon }) => {
               const active = activeTab === id;
               return (
                 <button
@@ -637,14 +637,15 @@ export default function RecipeFormModal({
                     cancelInFlightScrape();
                     setActiveTab(id as any);
                   }}
-                  className={`flex-1 sm:flex-initial min-h-11 sm:min-h-0 sm:h-9 px-2.5 sm:px-4 rounded-full text-xs font-medium whitespace-nowrap flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  className={`flex-1 sm:flex-initial min-h-11 sm:min-h-0 sm:h-9 px-2 sm:px-4 rounded-full text-xs font-medium whitespace-nowrap flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
                     active
                       ? "bg-foreground text-background shadow-xs"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{label}</span>
+                  <span className="sm:hidden">{mobileLabel}</span>
+                  <span className="hidden sm:inline">{label}</span>
                 </button>
               );
             })}
@@ -716,7 +717,7 @@ export default function RecipeFormModal({
                 disabled={isScraping}
                 aria-invalid={Boolean(scrapeError)}
                 aria-describedby={scrapeError ? "scraper-url-error" : undefined}
-                className="w-full sm:flex-1 h-11 px-4 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm placeholder:text-muted-foreground"
+                className="w-full sm:flex-1 h-11 px-4 bg-card text-foreground border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-base sm:text-sm placeholder:text-muted-foreground"
               />
               <button
                 id="draw-recipe-btn"
@@ -788,7 +789,7 @@ export default function RecipeFormModal({
                   placeholder="e.g. Black Pepper Chicken Club Sandwich"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm placeholder:text-muted-foreground"
+                  className="w-full h-11 px-4 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-base sm:text-sm placeholder:text-muted-foreground"
                 />
               </div>
 
@@ -805,7 +806,7 @@ export default function RecipeFormModal({
                   placeholder="What makes this dish great..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full min-h-[88px] px-4 py-2.5 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-sm leading-relaxed resize-y placeholder:text-muted-foreground"
+                  className="w-full min-h-[88px] px-4 py-2.5 bg-card text-foreground border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring text-base sm:text-sm leading-relaxed resize-y placeholder:text-muted-foreground"
                 />
               </div>
 
@@ -854,7 +855,7 @@ export default function RecipeFormModal({
                               setCookHours(num === 0 ? "" : String(num));
                             }
                           }}
-                          className="w-7 h-full bg-transparent text-right text-sm font-medium text-foreground tabular-nums focus:outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-8 sm:w-7 h-full bg-transparent text-right text-base sm:text-sm font-medium text-foreground tabular-nums focus:outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           aria-label="Cook time hours"
                         />
                         <span className="text-xs text-muted-foreground select-none">
@@ -901,7 +902,7 @@ export default function RecipeFormModal({
                             }
                           }}
                           onBlur={handleCookMinutesBlur}
-                          className="w-7 h-full bg-transparent text-right text-sm font-medium text-foreground tabular-nums focus:outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-8 sm:w-7 h-full bg-transparent text-right text-base sm:text-sm font-medium text-foreground tabular-nums focus:outline-none placeholder:text-muted-foreground/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           aria-label="Cook time minutes"
                         />
                         <span className="text-xs text-muted-foreground select-none">
@@ -964,7 +965,7 @@ export default function RecipeFormModal({
                       required
                       value={servings}
                       onChange={(e) => setServings(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="w-16 h-full bg-transparent text-center text-sm font-medium text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-16 h-full bg-transparent text-center text-base sm:text-sm font-medium text-foreground tabular-nums focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <button
                       type="button"
@@ -994,7 +995,7 @@ export default function RecipeFormModal({
                   <button
                     type="button"
                     onClick={() => setImageUrl("")}
-                    className="text-xs font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-medium text-muted-foreground hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>Remove photo</span>
@@ -1103,7 +1104,7 @@ export default function RecipeFormModal({
                       placeholder="https://..."
                       value={imageUrl.startsWith("data:") ? "" : imageUrl}
                       onChange={(e) => setImageUrl(e.target.value)}
-                      className="w-full h-9 px-3 bg-card text-foreground border border-border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground"
+                      className="w-full h-10 sm:h-9 px-3 bg-card text-foreground border border-border rounded-xl text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -1132,13 +1133,13 @@ export default function RecipeFormModal({
                         }
                       }}
                       placeholder={title || "Search dish name..."}
-                      className="flex-1 sm:w-48 h-8 px-3 rounded-full bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                      className="flex-1 min-w-0 sm:w-48 h-9 sm:h-8 px-3 rounded-full bg-background border border-border text-base sm:text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                     />
                     <button
                       type="button"
                       onClick={() => loadStandInPhotos(standInQuery || title, cuisine, true)}
                       disabled={isLoadingStandIns || !(standInQuery.trim() || title.trim())}
-                      className="h-8 px-3 rounded-full border border-border bg-background hover:bg-secondary text-xs font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40"
+                      className="h-9 sm:h-8 px-3 rounded-full border border-border bg-background hover:bg-secondary text-xs font-medium text-foreground transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40"
                     >
                       {isLoadingStandIns ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -1303,7 +1304,7 @@ export default function RecipeFormModal({
                       required
                       value={ingredient.name}
                       onChange={(e) => handleIngredientChange(index, "name", e.target.value)}
-                      className="w-full sm:flex-1 h-11 sm:h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                      className="w-full sm:flex-1 h-11 sm:h-10 px-3.5 bg-card text-foreground border border-border rounded-xl text-base sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                     />
                     <div className="flex gap-2 items-center">
                       <input
@@ -1314,7 +1315,7 @@ export default function RecipeFormModal({
                         min="0"
                         value={ingredient.amount === 0 ? "" : ingredient.amount}
                         onChange={(e) => handleIngredientChange(index, "amount", parseFloat(e.target.value) || 0)}
-                        className="w-20 h-11 sm:h-10 px-2.5 bg-card text-foreground border border-border rounded-xl text-sm text-center tabular-nums placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                        className="w-20 h-11 sm:h-10 px-2.5 bg-card text-foreground border border-border rounded-xl text-base sm:text-sm text-center tabular-nums placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                       />
                       <input
                         type="text"
@@ -1322,7 +1323,7 @@ export default function RecipeFormModal({
                         placeholder="Unit"
                         value={ingredient.unit}
                         onChange={(e) => handleIngredientChange(index, "unit", e.target.value)}
-                        className="flex-1 sm:w-28 h-11 sm:h-10 px-3 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+                        className="flex-1 min-w-0 sm:w-28 h-11 sm:h-10 px-3 bg-card text-foreground border border-border rounded-xl text-base sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
                       />
                       <button
                         type="button"
@@ -1378,7 +1379,7 @@ export default function RecipeFormModal({
                       required
                       value={step}
                       onChange={(e) => handleInstructionChange(index, e.target.value)}
-                      className="flex-1 px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-y"
+                      className="flex-1 min-w-0 px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-base sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-y"
                     />
                     <button
                       type="button"
@@ -1417,7 +1418,7 @@ export default function RecipeFormModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="w-full px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-y"
+                className="w-full px-3.5 py-2.5 bg-card text-foreground border border-border rounded-xl text-base sm:text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring resize-y"
               />
             </div>
 
