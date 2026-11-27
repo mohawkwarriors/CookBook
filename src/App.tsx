@@ -44,6 +44,7 @@ import {
   LayoutGrid,
   List,
   Lock,
+  ArrowLeft,
   ArrowUpDown,
   Bookmark,
   Trash2,
@@ -936,33 +937,58 @@ export default function App() {
 
       {/* Sidebar Nav Groups */}
       <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-6">
-        {/* Admin Kitchen Navigation */}
-        {isAdmin && (
-          <nav className="space-y-1">
-            <p className="px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Kitchen
-            </p>
+        {/* Primary & Admin Kitchen Navigation */}
+        <nav className="space-y-1">
+          <p className="px-2.5 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Kitchen
+          </p>
 
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentTab("mealPlan");
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between gap-2.5 h-9 px-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
-                currentTab === "mealPlan"
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground"
-              }`}
-            >
-              <span className="flex items-center gap-2.5 truncate">
-                <Calendar className="w-4 h-4 shrink-0" />
-                <span>Meal Planner</span>
-              </span>
-              {mealPlan.length > 0 && (
-                <span className="text-xs font-mono tabular-nums text-muted-foreground">{mealPlan.length}</span>
-              )}
-            </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentTab("recipes");
+              setActiveCollectionId(null);
+              setEditingRecipe(null);
+              setMobileMenuOpen(false);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className={`w-full flex items-center justify-between gap-2.5 h-9 px-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+              currentTab === "recipes" && !activeCollectionId
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground"
+            }`}
+          >
+            <span className="flex items-center gap-2.5 truncate">
+              <BookOpen className="w-4 h-4 shrink-0" />
+              <span>All Recipes</span>
+            </span>
+            {recipes.length > 0 && (
+              <span className="text-xs font-mono tabular-nums text-muted-foreground">{recipes.length}</span>
+            )}
+          </button>
+
+          {isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentTab("mealPlan");
+                  setMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-between gap-2.5 h-9 px-2.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                  currentTab === "mealPlan"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground"
+                }`}
+              >
+                <span className="flex items-center gap-2.5 truncate">
+                  <Calendar className="w-4 h-4 shrink-0" />
+                  <span>Meal Planner</span>
+                </span>
+                {mealPlan.length > 0 && (
+                  <span className="text-xs font-mono tabular-nums text-muted-foreground">{mealPlan.length}</span>
+                )}
+              </button>
 
             <button
               type="button"
@@ -999,8 +1025,9 @@ export default function App() {
               <Plus className="w-4 h-4 shrink-0" />
               <span>Add Recipe</span>
             </button>
-          </nav>
-        )}
+            </>
+          )}
+        </nav>
 
         {/* Custom Bookmarkable Collections */}
         <div className="space-y-1.5">
@@ -1245,8 +1272,8 @@ export default function App() {
         )}
 
         {/* Cook Well Sticky Top Page Bar */}
-        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border/70 bg-background/90 px-4 md:px-6 backdrop-blur-md">
-          {/* Sidebar Trigger */}
+        <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-2.5 sm:gap-3 border-b border-border/70 bg-background/90 px-4 md:px-6 backdrop-blur-md">
+          {/* Sidebar Trigger (hidden on mobile during Add/Edit Recipe in favor of Back button) */}
           <button
             id="sidebar-toggle-btn"
             type="button"
@@ -1262,12 +1289,30 @@ export default function App() {
                 setSidebarOpen((v) => !v);
               }
             }}
-            className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer -ml-1 shrink-0"
+            className={`${
+              currentTab === "addRecipe" ? "hidden md:inline-flex" : "inline-flex"
+            } size-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer -ml-1 shrink-0`}
             aria-label="Toggle Sidebar"
             title={sidebarOpen ? "Collapse sidebar & show all recipes" : "Open sidebar"}
           >
             <PanelLeft className="w-4 h-4" />
           </button>
+
+          {/* Back to Recipes Trigger (Add / Edit Recipe) */}
+          {currentTab === "addRecipe" && (
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentTab("recipes");
+                setEditingRecipe(null);
+              }}
+              className="inline-flex size-9 items-center justify-center rounded-full border border-border text-foreground hover:bg-secondary transition-colors cursor-pointer -ml-1 md:ml-0 shrink-0"
+              aria-label="Back to recipes"
+              title="Back to recipes"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Page Title */}
           <h1 className="font-serif truncate text-2xl sm:text-[28px] font-semibold tracking-[-0.01em] text-foreground leading-none">
@@ -1333,6 +1378,20 @@ export default function App() {
                   </button>
                 </div>
               </>
+            )}
+
+            {/* Cancel button when adding a new recipe */}
+            {isAdmin && currentTab === "addRecipe" && !editingRecipe && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentTab("recipes");
+                  setEditingRecipe(null);
+                }}
+                className="h-9 px-3.5 sm:px-4 rounded-full border border-border text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
             )}
 
             {/* Mobile Theme Toggle */}
@@ -1811,8 +1870,9 @@ export default function App() {
               <button
                 key={id}
                 type="button"
+                aria-current={active ? "page" : undefined}
                 onClick={() => {
-                  if (id === "addRecipe") setEditingRecipe(null);
+                  if (id === "addRecipe" || id === "recipes") setEditingRecipe(null);
                   setCurrentTab(id as any);
                 }}
                 className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-colors cursor-pointer ${
