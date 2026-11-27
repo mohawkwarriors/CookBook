@@ -21,6 +21,7 @@ import TopRatedSearch from "./TopRatedSearch";
 import RecipeIcon from "./RecipeIcon";
 import { formatTime, getMealTypeButtonColor } from "../lib/utils";
 import { compressImageFile, searchStandInPhotosDetailed, StandInPhoto } from "../lib/imageSearch";
+import { stripWebsiteSourceNotes } from "../lib/recipeNotes";
 
 interface RecipeFormModalProps {
   onClose: () => void;
@@ -315,16 +316,11 @@ export default function RecipeFormModal({
         : [""]
     );
 
-    let combinedNotes = topRecipe.notes || "";
+    let combinedNotes = stripWebsiteSourceNotes(topRecipe.notes, topRecipe.sourceUrl);
     if (topRecipe.keyTechnique) {
       combinedNotes = combinedNotes
         ? `${combinedNotes}\n\nChef's Secret Technique: ${topRecipe.keyTechnique}`
         : `Chef's Secret Technique: ${topRecipe.keyTechnique}`;
-    }
-    if (topRecipe.source) {
-      combinedNotes = combinedNotes
-        ? `${combinedNotes}\nSource: ${topRecipe.source}`
-        : `Source: ${topRecipe.source}`;
     }
     setNotes(combinedNotes);
     setImageUrl(topRecipe.imageUrl || "");
@@ -336,16 +332,11 @@ export default function RecipeFormModal({
   };
 
   const handleQuickSaveTopRecipe = async (topRecipe: TopRatedRecipe) => {
-    let combinedNotes = topRecipe.notes || "";
+    let combinedNotes = stripWebsiteSourceNotes(topRecipe.notes, topRecipe.sourceUrl);
     if (topRecipe.keyTechnique) {
       combinedNotes = combinedNotes
         ? `${combinedNotes}\n\nChef's Secret: ${topRecipe.keyTechnique}`
         : `Chef's Secret: ${topRecipe.keyTechnique}`;
-    }
-    if (topRecipe.source) {
-      combinedNotes = combinedNotes
-        ? `${combinedNotes}\nSource: ${topRecipe.source}`
-        : `Source: ${topRecipe.source}`;
     }
 
     const safeIngredients =
@@ -445,9 +436,10 @@ export default function RecipeFormModal({
       setServings(Math.max(1, Math.round(parsed.servings || 4)));
       setIngredients(parsedIngredients);
       setInstructions(parsedInstructions.length > 0 ? parsedInstructions : [""]);
-      setNotes(parsed.notes || "");
+      const resolvedSourceUrl = sanitizeHttpUrl(parsed.sourceUrl || normalizedInput);
+      setNotes(stripWebsiteSourceNotes(parsed.notes, resolvedSourceUrl));
       setImageUrl(sanitizeHttpUrl(parsed.imageUrl));
-      setSourceUrl(sanitizeHttpUrl(parsed.sourceUrl || normalizedInput));
+      setSourceUrl(resolvedSourceUrl);
       setNutrition(
         parsed.nutrition &&
           typeof parsed.nutrition === "object" &&

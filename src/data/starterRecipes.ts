@@ -753,6 +753,6 @@ export const STARTER_RECIPES: Recipe[] = [
     "createdAt": "2026-10-13T05:36:34.105Z",
     "description": "Crispy edged, juicy center smash burgers with a tangy special sauce.",
     "servings": 4,
-    "notes": "Source: Kenji's Food Lab"
+    "notes": ""
   }
 ];

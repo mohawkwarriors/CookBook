@@ -24,6 +24,7 @@ import StepScheduleBar from "./StepScheduleBar";
 import IngredientGroupCards from "./IngredientGroupCards";
 import { formatTime, getMealTypeColor } from "../lib/utils";
 import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
+import { parseDisplayNotes } from "../lib/recipeNotes";
 import {
   StepBlockItem,
   InstructionBlock,
@@ -900,26 +901,27 @@ export default function RecipeModal({
                           displayName: string
                         ) => {
                           const isCompleted = completedIngredients.has(originalIdx);
+                          const qtyText = [formatAmount(ing.amount), ing.unit].filter(Boolean).join(" ");
                           return (
                             <li key={originalIdx}>
                               <button
                                 type="button"
                                 aria-pressed={isCompleted}
                                 onClick={() => toggleIngredientComplete(originalIdx)}
-                                className="w-full flex items-center justify-between gap-3 py-3 text-left cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]"
+                                className="w-full flex items-start justify-between gap-3 py-3 text-left cursor-pointer select-none group hover:bg-secondary/40 px-2 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]"
                               >
-                                <span className="flex items-center gap-3 min-w-0">
+                                <span className="flex items-start gap-3 min-w-0 flex-1">
                                   <span
-                                    className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                    className={`w-[18px] h-[18px] sm:w-4 sm:h-4 mt-[2px] rounded-full shrink-0 flex items-center justify-center border transition-colors ${
                                       isCompleted
                                         ? "bg-primary border-primary text-primary-foreground"
                                         : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
                                     }`}
                                   >
-                                    {isCompleted && <Check className="w-2.5 h-2.5" strokeWidth={3.5} />}
+                                    {isCompleted && <Check className="w-3 h-3 sm:w-2.5 sm:h-2.5" strokeWidth={3.5} />}
                                   </span>
                                   <span
-                                    className={`text-sm leading-snug break-words transition-colors ${
+                                    className={`text-[15px] sm:text-sm leading-snug break-words transition-colors ${
                                       isCompleted
                                         ? "line-through text-muted-foreground"
                                         : "text-foreground"
@@ -928,9 +930,11 @@ export default function RecipeModal({
                                     {formatIngredientName(displayName)}
                                   </span>
                                 </span>
-                                <span className="font-mono text-xs tabular-nums text-right shrink-0 text-muted-foreground">
-                                  {formatAmount(ing.amount)} {ing.unit}
-                                </span>
+                                {qtyText && (
+                                  <span className="font-mono text-sm sm:text-xs leading-snug mt-[1px] tabular-nums text-right whitespace-nowrap shrink-0 text-muted-foreground">
+                                    {qtyText}
+                                  </span>
+                                )}
                               </button>
                             </li>
                           );
@@ -1209,42 +1213,28 @@ export default function RecipeModal({
                   </div>
 
                   {/* Notes & Technique Callout */}
-                  {recipe.notes && (
-                    <div className="mt-8 rounded-2xl border border-border bg-secondary/50 p-5 sm:p-6 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Utensils className="w-4 h-4 text-primary-dark" />
-                        <h3 className="text-sm font-semibold text-foreground">
-                          Notes &amp; Technique
-                        </h3>
+                  {(() => {
+                    const displayNotes = parseDisplayNotes(recipe.notes, recipe.sourceUrl);
+                    if (displayNotes.length === 0) return null;
+                    return (
+                      <div className="mt-8 rounded-2xl border border-border bg-secondary/50 p-5 sm:p-6 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Utensils className="w-4 h-4 text-primary-dark" />
+                          <h3 className="text-sm font-semibold text-foreground">
+                            Notes &amp; Technique
+                          </h3>
+                        </div>
+                        <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed">
+                          {displayNotes.map((cleanNote, idx) => (
+                            <li key={idx} className="flex items-start gap-2.5">
+                              <span className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                              <span>{cleanNote}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed">
-                        {(() => {
-                          let parsedNotes = recipe.notes
-                            .split("\n")
-                            .map((n) => n.trim())
-                            .filter(Boolean);
-                          if (parsedNotes.length === 1 && parsedNotes[0].includes(". ")) {
-                            parsedNotes = parsedNotes[0]
-                              .split(/\.\s+/)
-                              .map((n) => n.trim())
-                              .filter(Boolean)
-                              .map((n) => (n.endsWith(".") ? n : n + "."));
-                          }
-                          return parsedNotes.map((note, idx) => {
-                            const cleanNote = note
-                              .replace(/^[-*•]\s*/, "")
-                              .replace(/^\d+\.\s*/, "");
-                            return (
-                              <li key={idx} className="flex items-start gap-2.5">
-                                <span className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                                <span>{cleanNote}</span>
-                              </li>
-                            );
-                          });
-                        })()}
-                      </ul>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </section>
             </motion.div>

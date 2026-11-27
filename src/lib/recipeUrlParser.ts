@@ -1,4 +1,5 @@
 import type { Ingredient, Recipe } from "../types";
+import { stripWebsiteSourceNotes } from "./recipeNotes";
 
 export interface ParseRecipeUrlOptions {
   url: string;
@@ -1271,30 +1272,6 @@ function extractImageFromSchema(
   return "";
 }
 
-function extractAuthorName(
-  rawAuthor: unknown,
-  idMap: Map<string, Record<string, unknown>>
-): string {
-  if (!rawAuthor) return "";
-  if (typeof rawAuthor === "string") return cleanText(rawAuthor);
-  if (Array.isArray(rawAuthor)) {
-    for (const item of rawAuthor) {
-      const name = extractAuthorName(item, idMap);
-      if (name) return name;
-    }
-    return "";
-  }
-  if (typeof rawAuthor === "object") {
-    const obj = rawAuthor as Record<string, unknown>;
-    if (typeof obj.name === "string") return cleanText(obj.name);
-    if (typeof obj["@id"] === "string") {
-      const ref = idMap.get(obj["@id"]);
-      if (ref && typeof ref.name === "string") return cleanText(ref.name);
-    }
-  }
-  return "";
-}
-
 function extractMetaContent(html: string, names: string[]): string {
   for (const name of names) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -1367,7 +1344,7 @@ function finalizeRecipe(
     ? partial.mealType
     : "Main";
 
-  let notes = partial.notes.trim();
+  let notes = stripWebsiteSourceNotes(partial.notes, partial.sourceUrl);
   let cookingTime = Math.round(partial.cookingTime || 0);
   if (cookingTime <= 0) cookingTime = 30;
   if (cookingTime > 5999) {
@@ -1483,10 +1460,8 @@ function extractFromJsonLd(html: string, pageUrl: string): ParsedRecipeData | nu
     sanitizeImageUrl(extractMetaContent(html, ["og:image", "twitter:image"]), pageUrl);
 
   const nutrition = parseNutrition(best.nutrition);
-  const author = extractAuthorName(best.author, idMap);
 
   const noteParts: string[] = [];
-  if (author) noteParts.push(`Recipe by ${author}`);
   if (yieldNote) noteParts.push(`Yield: ${yieldNote}`);
 
   return finalizeRecipe({
@@ -1646,6 +1621,7 @@ Rules:
 - servings must be an integer >= 1.
 - ingredients: array of { "name": string, "amount": number, "unit": string }.
 - instructions: ordered array of clear step strings.
+- notes: optional cooking tips or technique notes only — do NOT include website names, URLs, author credits, or "Recipe by ..." / "Source: ..." lines (the website is already linked separately).
 - Return ONLY a single JSON object with keys: title, description, cuisine, mealType, cookingTime, servings, ingredients, instructions, notes, nutrition ({ calories, protein, carbs, fat }).`;
 
   const models = ["gemini-2.5-flash", "gemini-2.0-flash"];

@@ -120,24 +120,24 @@ export default function IngredientGroupCards({
                             type="button"
                             aria-pressed={isCompleted}
                             onClick={() => onToggleIngredient(item.originalIdx)}
-                            className={`w-full flex items-center justify-between gap-3 ${
-                              compact ? "px-3.5 py-2.5" : "px-3.5 py-2.5"
+                            className={`w-full flex items-start justify-between gap-3 ${
+                              compact ? "px-3.5 py-3 sm:py-2.5" : "px-3.5 py-3 sm:py-2.5"
                             } text-left group hover:bg-secondary/45 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px]`}
                           >
-                            <span className="flex items-center gap-3 min-w-0">
+                            <span className="flex items-start gap-3 min-w-0 flex-1">
                               <span
-                                className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center border transition-colors ${
+                                className={`w-[18px] h-[18px] sm:w-4 sm:h-4 mt-[2px] rounded-full shrink-0 flex items-center justify-center border transition-colors ${
                                   isCompleted
                                     ? "bg-primary border-primary text-primary-foreground"
                                     : "border-neutral-300 dark:border-neutral-600 group-hover:border-foreground"
                                 }`}
                               >
                                 {isCompleted && (
-                                  <Check className="w-2.5 h-2.5" strokeWidth={3.5} />
+                                  <Check className="w-3 h-3 sm:w-2.5 sm:h-2.5" strokeWidth={3.5} />
                                 )}
                               </span>
                               <span
-                                className={`text-sm leading-snug break-words transition-colors ${
+                                className={`text-[15px] sm:text-sm leading-snug break-words transition-colors ${
                                   isCompleted
                                     ? "line-through text-muted-foreground"
                                     : "text-foreground"
@@ -149,7 +149,7 @@ export default function IngredientGroupCards({
 
                             {qtyText && (
                               <span
-                                className={`font-mono text-xs font-semibold tabular-nums text-right shrink-0 ${
+                                className={`font-mono text-sm sm:text-xs leading-snug mt-[1px] font-semibold tabular-nums text-right whitespace-nowrap shrink-0 ${
                                   isCompleted
                                     ? "text-muted-foreground"
                                     : "text-foreground/85"
