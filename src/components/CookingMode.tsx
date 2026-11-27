@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { Recipe } from "../types";
 import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
+import { ComputedSchedule, formatClockTime, formatDurationShort } from "../lib/stepScheduler";
+import IngredientGroupCards from "./IngredientGroupCards";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface CookingModeProps {
@@ -25,6 +27,7 @@ interface CookingModeProps {
   isOpen: boolean;
   completedSteps: Set<number>;
   completedIngredients: Set<number>;
+  schedule?: ComputedSchedule | null;
   onToggleStepComplete: (stepIdx: number) => void;
   onToggleIngredientComplete: (ingIdx: number) => void;
   onClose: () => void;
@@ -105,6 +108,7 @@ export default function CookingMode({
   isOpen,
   completedSteps,
   completedIngredients,
+  schedule,
   onToggleStepComplete,
   onToggleIngredientComplete,
   onClose,
@@ -112,8 +116,13 @@ export default function CookingMode({
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [showIngredients, setShowIngredients] = useState(false);
+  const [collapsedIngredientGroups, setCollapsedIngredientGroups] = useState<Set<string>>(new Set());
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+
+  useEffect(() => {
+    setCollapsedIngredientGroups(new Set());
+  }, [recipe.id, isOpen]);
 
   useBodyScrollLock(isOpen);
 
@@ -139,6 +148,7 @@ export default function CookingMode({
     ? activeStepMeta.text
     : recipe.instructions[currentStep] || "";
   const isCurrentCompleted = completedSteps.has(currentStep);
+  const currentStepTiming = schedule?.stepByIndex.get(currentStep) ?? null;
 
   // Cook Well signature feature: match ingredients mentioned in the active step
   const stepIngredients = useMemo(() => {
@@ -333,6 +343,16 @@ export default function CookingMode({
               <span className="tabular-nums">
                 {servings} {servings === 1 ? "serving" : "servings"}
               </span>
+              {schedule && (
+                <>
+                  <span>·</span>
+                  <span className="font-mono text-primary-dark dark:text-primary tabular-nums">
+                    Ready{" "}
+                    {schedule.finishDayPrefix ? `${schedule.finishDayPrefix} ` : ""}
+                    {formatClockTime(schedule.finishTime)}
+                  </span>
+                </>
+              )}
             </div>
             <h2 className="text-sm font-medium text-muted-foreground truncate max-w-[200px] sm:max-w-md">
               {recipe.title}
@@ -393,6 +413,22 @@ export default function CookingMode({
                   <span className="font-mono text-xs font-medium uppercase tracking-widest text-muted-foreground tabular-nums">
                     Step {currentStep + 1} of {totalSteps}
                   </span>
+                  {currentStepTiming && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-secondary/60 text-xs font-mono font-medium text-foreground tabular-nums">
+                      <Clock className="w-3 h-3 text-primary-dark dark:text-primary" />
+                      <span>
+                        {currentStepTiming.isServeStep
+                          ? `Ready · ${currentStepTiming.dayPrefix ? `${currentStepTiming.dayPrefix} · ` : ""}${currentStepTiming.formattedStart}`
+                          : `Start ${currentStepTiming.dayPrefix ? `${currentStepTiming.dayPrefix} · ` : ""}${currentStepTiming.formattedStart}`}
+                      </span>
+                      {currentStepTiming.durationMinutes > 0 && (
+                        <span className="text-muted-foreground">
+                          · {currentStepTiming.isExplicit && !currentStepTiming.isOvernightEstimate ? "" : "~"}
+                          {formatDurationShort(currentStepTiming.durationMinutes)}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </div>
 
                 <button
@@ -643,20 +679,45 @@ export default function CookingMode({
               transition={{ type: "spring", damping: 30, stiffness: 320 }}
               className="relative w-full max-w-md bg-background border-l border-border h-full shadow-2xl flex flex-col z-10"
             >
-              <div className="h-16 px-5 border-b border-border flex items-center justify-between">
+              <div className="h-16 px-5 border-b border-border flex items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">All Ingredients</h3>
                   <p className="text-xs text-muted-foreground">
                     Scaled for {servings} {servings === 1 ? "serving" : "servings"}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowIngredients(false)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {parsedIngredients.isGrouped && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          collapsedIngredientGroups.size ===
+                          parsedIngredients.groups.length
+                        ) {
+                          setCollapsedIngredientGroups(new Set());
+                        } else {
+                          setCollapsedIngredientGroups(
+                            new Set(parsedIngredients.groups.map((g) => g.id))
+                          );
+                        }
+                      }}
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer px-2 py-1 rounded-full hover:bg-secondary"
+                    >
+                      {collapsedIngredientGroups.size ===
+                      parsedIngredients.groups.length
+                        ? "Expand all"
+                        : "Collapse all"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowIngredients(false)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto px-5 py-3">
@@ -705,23 +766,23 @@ export default function CookingMode({
                   }
 
                   return (
-                    <div className="space-y-5 py-1">
-                      {parsedIngredients.groups.map((group) => (
-                        <div key={group.id}>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1">
-                            {group.title}
-                          </p>
-                          <ul className="divide-y divide-border/70 border-y border-border/70">
-                            {group.items.map((item) =>
-                              renderDrawerRow(
-                                item.ingredient,
-                                item.originalIdx,
-                                item.displayName
-                              )
-                            )}
-                          </ul>
-                        </div>
-                      ))}
+                    <div className="py-1">
+                      <IngredientGroupCards
+                        groups={parsedIngredients.groups}
+                        completedIngredients={completedIngredients}
+                        collapsedGroups={collapsedIngredientGroups}
+                        onToggleGroupCollapsed={(groupId) => {
+                          setCollapsedIngredientGroups((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(groupId)) next.delete(groupId);
+                            else next.add(groupId);
+                            return next;
+                          });
+                        }}
+                        onToggleIngredient={onToggleIngredientComplete}
+                        formatAmount={formatAmount}
+                        compact={true}
+                      />
                     </div>
                   );
                 })()}

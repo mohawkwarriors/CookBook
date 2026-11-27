@@ -51,12 +51,13 @@ export interface ParsedRecipeIngredients {
 }
 
 const STEP_PREFIX_RE = /^([A-Z][A-Za-z0-9 &/'-]{1,32}):\s+(.+)$/s;
+const ING_PREFIX_RE = /^([A-Za-z][A-Za-z0-9 &/'-]{1,32}):\s+(.+)$/s;
 const NON_COMPONENT_PREFIX_RE =
   /^(?:step\s*\d+|note|notes|tip|tips|pro\s*tip|optional|warning|caution|important|chef'?s?\s*note|serving\s*tip)$/i;
 
 const TRAILING_PAREN_RE = /^(.+?)\s*\(([^()]+)\)\s*$/;
 const NON_GROUP_PAREN_RE =
-  /^(?:optional|to taste|divided|plus extra.*|as needed|for frying|for cooking|for baking|drained|rinsed|drained and rinsed|peeled|chopped|finely chopped|diced|sliced|minced|beaten|melted|softened|room temperature|fresh|dried|thawed|cooked|uncooked|cubed|grated|shredded|crushed|halved|quartered|trimmed|seeded|cored|pitted|packed|sifted|warm|cold|hot|chilled|boiling|large|medium|small)$/i;
+  /^(?:optional|to taste|divided|plus extra.*|as needed|drained|rinsed|drained and rinsed|peeled|chopped|finely chopped|diced|sliced|minced|beaten|melted|softened|room temperature|fresh|dried|thawed|cooked|uncooked|cubed|grated|shredded|crushed|halved|quartered|trimmed|seeded|cored|pitted|packed|sifted|warm|cold|hot|chilled|boiling|large|medium|small)$/i;
 
 function normalizeKey(label: string): string {
   return label
@@ -233,9 +234,47 @@ function extractTrailingGroupTag(name: string): { cleanName: string; tag: string
   return { cleanName, tag };
 }
 
+function extractLeadingGroupPrefix(name: string): { cleanName: string; tag: string } | null {
+  const trimmed = name.trim();
+  const match = trimmed.match(ING_PREFIX_RE);
+  if (!match) return null;
+
+  const tag = match[1].trim();
+  const cleanName = match[2].trim();
+  if (!cleanName || !tag) return null;
+  if (NON_COMPONENT_PREFIX_RE.test(tag)) return null;
+  if (tag.length > 32 || tag.split(/\s+/).length > 4) return null;
+
+  return { cleanName, tag };
+}
+
+function isStandaloneHeaderRow(ing: Ingredient): string | null {
+  if ((ing.amount || 0) !== 0 || ing.unit.trim() !== "") return null;
+  const trimmed = ing.name.trim();
+  if (!trimmed.endsWith(":")) return null;
+  const tag = trimmed.slice(0, -1).trim();
+  if (!tag || tag.length > 32 || tag.split(/\s+/).length > 4) return null;
+  if (NON_COMPONENT_PREFIX_RE.test(tag)) return null;
+  return tag;
+}
+
+function toTitleCaseLabel(label: string): string {
+  const cleaned = label.trim();
+  if (!cleaned) return cleaned;
+  // Preserve mixed/capitalized labels like "Milk Soak" or "BBQ Sauce", title-case all-lowercase labels like "for baking"
+  if (cleaned === cleaned.toLowerCase()) {
+    return cleaned.replace(/\b[a-z]/g, (ch) => ch.toUpperCase());
+  }
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 /**
- * Groups ingredients by trailing parenthetical component tags (e.g. "Plain Yogurt (Curry)")
- * ONLY when the recipe has 2+ real component groups (leaving single-component recipes flat).
+ * Groups ingredients by what part of the dish they make across:
+ * A) Explicit `ing.group` field
+ * B) Standalone header rows (e.g. `{ name: "Dough:", amount: 0, unit: "" }`)
+ * C) Leading colon prefixes (e.g. "Dough: Bread Flour")
+ * D) Trailing parenthetical tags (e.g. "Plain Yogurt (Curry)")
+ * Leaves simple single-component recipes flat (`isGrouped: false`).
  */
 export function parseIngredientGroups(
   ingredients: Ingredient[],
@@ -248,25 +287,96 @@ export function parseIngredientGroups(
   }
 
   const chapterKeys = new Set(instructionChapterTitles.map(normalizeKey));
-  const candidates = ingredients.map((ing, idx) => ({
-    ing,
-    idx,
-    extracted: extractTrailingGroupTag(ing.name),
-  }));
+  let activeHeaderTag: string | null = null;
+
+  const candidates = ingredients.map((ing, idx) => {
+    const headerRowTag = isStandaloneHeaderRow(ing);
+    if (headerRowTag) {
+      activeHeaderTag = headerRowTag;
+      return {
+        ing,
+        idx,
+        isHeaderRow: true,
+        isExplicitSection: true,
+        extracted: null as { cleanName: string; tag: string } | null,
+      };
+    }
+
+    if (ing.group && ing.group.trim()) {
+      return {
+        ing,
+        idx,
+        isHeaderRow: false,
+        isExplicitSection: true,
+        extracted: { cleanName: ing.name.trim(), tag: ing.group.trim() },
+      };
+    }
+
+    const leading = extractLeadingGroupPrefix(ing.name);
+    if (leading) {
+      return {
+        ing,
+        idx,
+        isHeaderRow: false,
+        isExplicitSection: true,
+        extracted: leading,
+      };
+    }
+
+    const trailing = extractTrailingGroupTag(ing.name);
+    if (trailing) {
+      return {
+        ing,
+        idx,
+        isHeaderRow: false,
+        isExplicitSection: false,
+        extracted: trailing,
+      };
+    }
+
+    if (activeHeaderTag) {
+      return {
+        ing,
+        idx,
+        isHeaderRow: false,
+        isExplicitSection: true,
+        extracted: { cleanName: ing.name.trim(), tag: activeHeaderTag },
+      };
+    }
+
+    return {
+      ing,
+      idx,
+      isHeaderRow: false,
+      isExplicitSection: false,
+      extracted: null as { cleanName: string; tag: string } | null,
+    };
+  });
+
+  const nonHeaderCandidates = candidates.filter((c) => !c.isHeaderRow);
+  if (nonHeaderCandidates.length === 0) {
+    ingredients.forEach((ing, idx) => displayNameByIndex.set(idx, ing.name));
+    return { isGrouped: false, groups: [], displayNameByIndex, groupTitleByIndex };
+  }
 
   const tagCounts = new Map<string, number>();
   const canonicalTagByKey = new Map<string, string>();
-  for (const c of candidates) {
+  const explicitKeys = new Set<string>();
+
+  for (const c of nonHeaderCandidates) {
     if (!c.extracted) continue;
     const key = normalizeKey(c.extracted.tag);
     tagCounts.set(key, (tagCounts.get(key) || 0) + 1);
+    if (c.isExplicitSection) {
+      explicitKeys.add(key);
+    }
     if (!canonicalTagByKey.has(key)) {
-      canonicalTagByKey.set(key, c.extracted.tag);
+      canonicalTagByKey.set(key, toTitleCaseLabel(c.extracted.tag));
     }
   }
 
-  const totalWithAnyCandidateTag = candidates.filter((c) => c.extracted !== null).length;
-  const highTagCoverage = totalWithAnyCandidateTag / ingredients.length >= 0.6;
+  const totalWithAnyCandidateTag = nonHeaderCandidates.filter((c) => c.extracted !== null).length;
+  const highTagCoverage = totalWithAnyCandidateTag / nonHeaderCandidates.length >= 0.6;
 
   // Determine which tags represent actual component groups vs. single transliterations like "(Zeera)"
   const validGroupKeys = new Set<string>();
@@ -274,34 +384,46 @@ export function parseIngredientGroups(
     const matchesChapter =
       chapterKeys.has(key) ||
       Array.from(chapterKeys).some((ck) => ck.includes(key) || key.includes(ck));
-    if (count >= 2 || matchesChapter || highTagCoverage) {
+    if (explicitKeys.has(key) || count >= 2 || matchesChapter || highTagCoverage) {
       validGroupKeys.add(key);
     }
   }
 
-  const validTaggedCount = candidates.filter(
+  const validTaggedCount = nonHeaderCandidates.filter(
     (c) => c.extracted && validGroupKeys.has(normalizeKey(c.extracted.tag))
   ).length;
+  const untaggedCount = nonHeaderCandidates.length - validTaggedCount;
 
-  const isMultiComponent =
+  const hasMultipleExplicitGroups =
     validGroupKeys.size >= 2 &&
-    (validTaggedCount / ingredients.length >= 0.5 ||
-      (chapterKeys.size >= 2 && validTaggedCount >= 2));
+    (validTaggedCount / nonHeaderCandidates.length >= 0.5 ||
+      (chapterKeys.size >= 2 && validTaggedCount >= 2) ||
+      explicitKeys.size >= 2);
+
+  const hasSingleSubGroupWithMain =
+    validGroupKeys.size === 1 &&
+    (tagCounts.get(Array.from(validGroupKeys)[0]) || 0) >= 2 &&
+    untaggedCount >= 3;
+
+  const isMultiComponent = hasMultipleExplicitGroups || hasSingleSubGroupWithMain;
 
   if (!isMultiComponent) {
     ingredients.forEach((ing, idx) => displayNameByIndex.set(idx, ing.name));
     return { isGrouped: false, groups: [], displayNameByIndex, groupTitleByIndex };
   }
 
+  const untaggedTitle =
+    untaggedCount / nonHeaderCandidates.length >= 0.4 ? "Main" : "Other";
+
   const groupMap = new Map<string, IngredientGroup>();
   const orderedGroups: IngredientGroup[] = [];
 
-  for (const c of candidates) {
+  for (const c of nonHeaderCandidates) {
     const isTagged = c.extracted && validGroupKeys.has(normalizeKey(c.extracted.tag));
-    const key = isTagged ? normalizeKey(c.extracted!.tag) : "__other__";
+    const key = isTagged ? normalizeKey(c.extracted!.tag) : "__untagged__";
     const title = isTagged
-      ? canonicalTagByKey.get(key) || c.extracted!.tag
-      : "Other";
+      ? canonicalTagByKey.get(key) || toTitleCaseLabel(c.extracted!.tag)
+      : untaggedTitle;
     const displayName = isTagged ? c.extracted!.cleanName : c.ing.name;
 
     displayNameByIndex.set(c.idx, displayName);

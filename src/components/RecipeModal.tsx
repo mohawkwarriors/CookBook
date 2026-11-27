@@ -20,8 +20,18 @@ import { Recipe, MealPlanEntry } from "../types";
 import InstructionStep from "./InstructionStep";
 import RecipeIcon from "./RecipeIcon";
 import CookingMode from "./CookingMode";
+import StepScheduleBar from "./StepScheduleBar";
+import IngredientGroupCards from "./IngredientGroupCards";
 import { formatTime, getMealTypeColor } from "../lib/utils";
 import { parseInstructionChapters, parseIngredientGroups } from "../lib/recipeComponents";
+import {
+  StepBlockItem,
+  InstructionBlock,
+  buildInstructionBlocks,
+  analyzeRecipeSchedule,
+  computeStepSchedule,
+  buildTargetDate,
+} from "../lib/stepScheduler";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 
 interface RecipeModalProps {
@@ -51,58 +61,6 @@ const formatIngredientName = (name: string) => {
     .join(" ");
 };
 
-interface StepBlockItem {
-  step: string;
-  idx: number;
-  displayNumber: number;
-}
-
-type InstructionBlock =
-  | { type: "single"; item: StepBlockItem }
-  | { type: "parallel"; items: StepBlockItem[] };
-
-const buildInstructionBlocks = (items: StepBlockItem[]): InstructionBlock[] => {
-  const blocks: InstructionBlock[] = [];
-  let currentParallelBlock: StepBlockItem[] | null = null;
-
-  items.forEach((item, localIdx) => {
-    const lowerStep = item.step.toLowerCase().trim();
-    const isParallel =
-      localIdx > 0 &&
-      (lowerStep.startsWith("meanwhile") ||
-        lowerStep.startsWith("while") ||
-        lowerStep.startsWith("in parallel") ||
-        lowerStep.startsWith("separately") ||
-        lowerStep.startsWith("at the same time") ||
-        lowerStep.startsWith("for the ") ||
-        lowerStep.startsWith("to make the ") ||
-        lowerStep.startsWith("prepare the "));
-
-    if (isParallel) {
-      if (!currentParallelBlock) {
-        const lastBlock = blocks.pop();
-        if (lastBlock?.type === "single") {
-          currentParallelBlock = [lastBlock.item, item];
-          blocks.push({ type: "parallel", items: currentParallelBlock });
-        } else if (lastBlock?.type === "parallel") {
-          lastBlock.items.push(item);
-          blocks.push(lastBlock);
-          currentParallelBlock = lastBlock.items;
-        } else {
-          blocks.push({ type: "single", item });
-        }
-      } else {
-        currentParallelBlock.push(item);
-      }
-    } else {
-      currentParallelBlock = null;
-      blocks.push({ type: "single", item });
-    }
-  });
-
-  return blocks;
-};
-
 export default function RecipeModal({
   recipe,
   isOpen,
@@ -125,10 +83,15 @@ export default function RecipeModal({
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [completedIngredients, setCompletedIngredients] = useState<Set<number>>(new Set());
   const [collapsedChapters, setCollapsedChapters] = useState<Set<string>>(new Set());
+  const [collapsedIngredientGroups, setCollapsedIngredientGroups] = useState<Set<string>>(new Set());
   const [isCookingModeOpen, setIsCookingModeOpen] = useState(false);
   const [isIngredientsCollapsed, setIsIngredientsCollapsed] = useState(false);
   const [hasAutoCollapsed, setHasAutoCollapsed] = useState(false);
   const [ingScrollFade, setIngScrollFade] = useState({ top: false, bottom: false });
+  const [isScheduleExpanded, setIsScheduleExpanded] = useState(false);
+  const [targetTimeValue, setTargetTimeValue] = useState("");
+  const [targetDayOffset, setTargetDayOffset] = useState<number>(0);
+  const [scheduleNow, setScheduleNow] = useState<Date>(() => new Date());
   const bodyRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -151,24 +114,100 @@ export default function RecipeModal({
     [recipe?.ingredients, parsedMethod.chapters]
   );
 
-  const scrollIngredientsToGroup = (chapterTitle: string) => {
-    if (!parsedIngredients.isGrouped || window.innerWidth < 768) return;
-    const scrollEl = ingredientsScrollRef.current;
-    if (!scrollEl || scrollEl.scrollHeight <= scrollEl.clientHeight + 2) return;
+  const scheduleAnalysis = useMemo(
+    () => (recipe ? analyzeRecipeSchedule(recipe, parsedMethod) : null),
+    [recipe, parsedMethod]
+  );
 
+  const computedSchedule = useMemo(() => {
+    if (!scheduleAnalysis?.isEligible || !targetTimeValue) return null;
+    const targetDate = buildTargetDate(targetTimeValue, targetDayOffset, scheduleNow);
+    if (!targetDate) return null;
+    return computeStepSchedule(scheduleAnalysis, targetDate, scheduleNow);
+  }, [scheduleAnalysis, targetTimeValue, targetDayOffset, scheduleNow]);
+
+  const nextUpStepIdx = useMemo(() => {
+    if (!scheduleAnalysis || !computedSchedule) return null;
+    return scheduleAnalysis.orderedStepIndices.find((idx) => !completedSteps.has(idx)) ?? null;
+  }, [scheduleAnalysis, computedSchedule, completedSteps]);
+
+  const handleChangeScheduleTarget = (nextTime: string, nextDayOffset: number) => {
+    setTargetTimeValue(nextTime);
+    setTargetDayOffset(nextDayOffset);
+    setScheduleNow(new Date());
+    if (recipe?.id) {
+      try {
+        if (nextTime) {
+          sessionStorage.setItem(
+            `cookbook_schedule_${recipe.id}`,
+            JSON.stringify({ timeValue: nextTime, dayOffset: nextDayOffset })
+          );
+        } else {
+          sessionStorage.removeItem(`cookbook_schedule_${recipe.id}`);
+        }
+      } catch {
+        // Ignore sessionStorage errors in restricted environments
+      }
+    }
+  };
+
+  const handleClearSchedule = () => {
+    setTargetTimeValue("");
+    setTargetDayOffset(0);
+    if (recipe?.id) {
+      try {
+        sessionStorage.removeItem(`cookbook_schedule_${recipe.id}`);
+      } catch {
+        // Ignore sessionStorage errors
+      }
+    }
+  };
+
+  const scrollIngredientsToGroup = (chapterTitle: string) => {
+    if (!parsedIngredients.isGrouped) return;
     const normalized = chapterTitle.trim().toLowerCase();
     const matchingGroup = parsedIngredients.groups.find(
       (g) => g.title.trim().toLowerCase() === normalized
     );
     if (!matchingGroup) return;
 
-    const target = scrollEl.querySelector<HTMLElement>(
-      `[data-ing-group-id="${matchingGroup.id}"]`
-    );
-    if (!target) return;
+    const wasCollapsed = collapsedIngredientGroups.has(matchingGroup.id);
+    if (wasCollapsed) {
+      setCollapsedIngredientGroups((prev) => {
+        const next = new Set(prev);
+        next.delete(matchingGroup.id);
+        return next;
+      });
+    }
 
-    const targetTop = target.offsetTop - 8;
-    scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    if (window.innerWidth < 768) return;
+    const scrollEl = ingredientsScrollRef.current;
+    if (!scrollEl) return;
+
+    const doScroll = () => {
+      if (scrollEl.scrollHeight <= scrollEl.clientHeight + 2) return;
+      const target = scrollEl.querySelector<HTMLElement>(
+        `[data-ing-group-id="${matchingGroup.id}"]`
+      );
+      if (!target) return;
+      const targetTop = target.offsetTop - 8;
+      scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    };
+
+    if (wasCollapsed) {
+      setTimeout(doScroll, 80);
+    } else {
+      doScroll();
+    }
+  };
+
+  const toggleIngredientGroupCollapsed = (groupId: string) => {
+    setCollapsedIngredientGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
   };
 
   const toggleStepComplete = (stepIdx: number) => {
@@ -214,9 +253,37 @@ export default function RecipeModal({
       setCompletedSteps(new Set());
       setCompletedIngredients(new Set());
       setCollapsedChapters(new Set());
+      setCollapsedIngredientGroups(new Set());
       setIsCookingModeOpen(false);
       setIsIngredientsCollapsed(false);
       setHasAutoCollapsed(false);
+      setIsScheduleExpanded(false);
+      setScheduleNow(new Date());
+
+      let restoredTime = "";
+      let restoredDay = 0;
+      if (recipe.id) {
+        try {
+          const raw = sessionStorage.getItem(`cookbook_schedule_${recipe.id}`);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (
+              parsed &&
+              typeof parsed.timeValue === "string" &&
+              /^\d{2}:\d{2}$/.test(parsed.timeValue)
+            ) {
+              restoredTime = parsed.timeValue;
+              const d = Number(parsed.dayOffset);
+              restoredDay = Number.isInteger(d) && d >= 0 && d <= 7 ? d : 0;
+            }
+          }
+        } catch {
+          // Ignore sessionStorage errors
+        }
+      }
+      setTargetTimeValue(restoredTime);
+      setTargetDayOffset(restoredDay);
+
       if (bodyRef.current) {
         bodyRef.current.scrollTop = 0;
       }
@@ -225,6 +292,16 @@ export default function RecipeModal({
       }
     }
   }, [recipe, isOpen]);
+
+  // Refresh "now" every 30s while a step schedule is active
+  useEffect(() => {
+    if (!isOpen || !targetTimeValue) return;
+    setScheduleNow(new Date());
+    const interval = setInterval(() => {
+      setScheduleNow(new Date());
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [isOpen, targetTimeValue]);
 
   // Move focus into dialog on open and restore to trigger element on close
   useEffect(() => {
@@ -265,6 +342,7 @@ export default function RecipeModal({
     };
 
     const raf = requestAnimationFrame(updateFade);
+    const animTimer = setTimeout(updateFade, 230);
     el.addEventListener("scroll", updateFade, { passive: true });
     window.addEventListener("resize", updateFade);
     let ro: ResizeObserver | null = null;
@@ -275,11 +353,12 @@ export default function RecipeModal({
 
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(animTimer);
       el.removeEventListener("scroll", updateFade);
       window.removeEventListener("resize", updateFade);
       if (ro) ro.disconnect();
     };
-  }, [isOpen, recipe, parsedIngredients.isGrouped]);
+  }, [isOpen, recipe, parsedIngredients.isGrouped, collapsedIngredientGroups]);
 
   // Trap Tab focus inside dialog and close on Escape when Cooking Mode is not open
   useEffect(() => {
@@ -752,6 +831,35 @@ export default function RecipeModal({
                     </p>
                   )}
 
+                  {parsedIngredients.isGrouped && !isIngredientsCollapsed && (
+                    <div className="flex items-center justify-between gap-2 text-xs shrink-0 -mt-1">
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        {parsedIngredients.groups.length} sections · {completedIngredients.size} checked
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (
+                            collapsedIngredientGroups.size ===
+                            parsedIngredients.groups.length
+                          ) {
+                            setCollapsedIngredientGroups(new Set());
+                          } else {
+                            setCollapsedIngredientGroups(
+                              new Set(parsedIngredients.groups.map((g) => g.id))
+                            );
+                          }
+                        }}
+                        className="font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer print:hidden"
+                      >
+                        {collapsedIngredientGroups.size ===
+                        parsedIngredients.groups.length
+                          ? "Expand all"
+                          : "Collapse all"}
+                      </button>
+                    </div>
+                  )}
+
                   <div className="relative md:flex-1 md:min-h-0 flex flex-col">
                     {/* Top overflow fade cue (desktop only, when scrolled down) */}
                     <div
@@ -824,24 +932,15 @@ export default function RecipeModal({
                         }
 
                         return (
-                          <div className="space-y-5">
-                            {parsedIngredients.groups.map((group) => (
-                              <div key={group.id} data-ing-group-id={group.id}>
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
-                                  {group.title}
-                                </p>
-                                <ul className="divide-y divide-border/70 border-y border-border/70">
-                                  {group.items.map((item) =>
-                                    renderIngredientRow(
-                                      item.ingredient,
-                                      item.originalIdx,
-                                      item.displayName
-                                    )
-                                  )}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
+                          <IngredientGroupCards
+                            groups={parsedIngredients.groups}
+                            completedIngredients={completedIngredients}
+                            collapsedGroups={collapsedIngredientGroups}
+                            onToggleGroupCollapsed={toggleIngredientGroupCollapsed}
+                            onToggleIngredient={toggleIngredientComplete}
+                            formatAmount={formatAmount}
+                            formatDisplayName={formatIngredientName}
+                          />
                         );
                       })()}
                     </div>
@@ -893,8 +992,31 @@ export default function RecipeModal({
                     </div>
                   </div>
 
+                  {scheduleAnalysis?.isEligible && (
+                    <StepScheduleBar
+                      analysis={scheduleAnalysis}
+                      schedule={computedSchedule}
+                      isExpanded={isScheduleExpanded}
+                      onToggleExpanded={() => setIsScheduleExpanded((v) => !v)}
+                      timeValue={targetTimeValue}
+                      dayOffset={targetDayOffset}
+                      onChangeTarget={handleChangeScheduleTarget}
+                      onClear={handleClearSchedule}
+                      now={scheduleNow}
+                    />
+                  )}
+
                   <div>
                     {(() => {
+                      const getScheduledTiming = (stepIdx: number) => {
+                        const timing = computedSchedule?.stepByIndex.get(stepIdx);
+                        if (!timing) return null;
+                        return {
+                          ...timing,
+                          isNextUp: nextUpStepIdx === stepIdx,
+                        };
+                      };
+
                       const renderBlocks = (blocks: InstructionBlock[], inCard: boolean) => (
                         <div className="divide-y divide-border/60">
                           {blocks.map((block, bIdx) => {
@@ -908,6 +1030,7 @@ export default function RecipeModal({
                                     inCard={inCard}
                                     isCompleted={completedSteps.has(block.item.idx)}
                                     isParallel={false}
+                                    scheduledTiming={getScheduledTiming(block.item.idx)}
                                     onToggleComplete={() => toggleStepComplete(block.item.idx)}
                                   />
                                 </div>
@@ -932,6 +1055,7 @@ export default function RecipeModal({
                                     inCard={inCard}
                                     isCompleted={completedSteps.has(s.idx)}
                                     isParallel={true}
+                                    scheduledTiming={getScheduledTiming(s.idx)}
                                     onToggleComplete={() => toggleStepComplete(s.idx)}
                                   />
                                 ))}
@@ -1002,6 +1126,23 @@ export default function RecipeModal({
                                   </div>
 
                                   <div className="flex items-center gap-2.5 shrink-0">
+                                    {(() => {
+                                      const chapterStart = computedSchedule?.chapterStartById.get(
+                                        chapter.id
+                                      );
+                                      if (!chapterStart || isChapterDone) return null;
+                                      return (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-mono tabular-nums px-2.5 py-0.5 rounded-full border border-primary/30 bg-primary/10 text-primary-dark dark:text-primary">
+                                          <Clock className="w-3 h-3" />
+                                          <span>
+                                            {chapterStart.dayPrefix
+                                              ? `${chapterStart.dayPrefix} · `
+                                              : ""}
+                                            {chapterStart.formattedStart}
+                                          </span>
+                                        </span>
+                                      );
+                                    })()}
                                     <span
                                       className={`inline-flex items-center gap-1 text-xs font-mono tabular-nums px-2.5 py-0.5 rounded-full border transition-colors ${
                                         isChapterDone
@@ -1101,6 +1242,7 @@ export default function RecipeModal({
             isOpen={isCookingModeOpen}
             completedSteps={completedSteps}
             completedIngredients={completedIngredients}
+            schedule={computedSchedule}
             onToggleStepComplete={(stepIdx) => {
               const next = new Set(completedSteps);
               if (next.has(stepIdx)) next.delete(stepIdx);

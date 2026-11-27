@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { Check, Play, Pause, RotateCcw, Clock } from "lucide-react";
+import { ComputedStepTiming, formatDurationShort } from "../lib/stepScheduler";
 
 interface InstructionStepProps {
   key?: React.Key;
@@ -10,6 +11,7 @@ interface InstructionStepProps {
   inCard?: boolean;
   isCompleted: boolean;
   isParallel: boolean;
+  scheduledTiming?: (ComputedStepTiming & { isNextUp?: boolean }) | null;
   onToggleComplete: () => void;
 }
 
@@ -56,6 +58,7 @@ export default function InstructionStep({
   inCard = false,
   isCompleted,
   isParallel,
+  scheduledTiming,
   onToggleComplete,
 }: InstructionStepProps) {
   const initialTime = extractTimeInSeconds(step);
@@ -104,14 +107,17 @@ export default function InstructionStep({
 
   return (
     <motion.div
-      className={`group cursor-pointer w-full select-none rounded-2xl transition-colors ${
+      className={`group cursor-pointer w-full rounded-2xl transition-colors ${
         isParallel
           ? "p-4 border border-border bg-secondary/40 hover:bg-secondary/70"
           : inCard
           ? "py-3.5 px-3 hover:bg-secondary/50"
           : "py-4 px-3 -mx-3 hover:bg-secondary/50"
       }`}
-      onClick={onToggleComplete}
+      onClick={() => {
+        if (window.getSelection()?.toString()) return;
+        onToggleComplete();
+      }}
       whileTap={{ scale: 0.996 }}
     >
       <div className="flex items-start gap-4">
@@ -119,7 +125,7 @@ export default function InstructionStep({
         <motion.div
           animate={{ scale: isCompleted ? [1, 1.18, 1] : 1 }}
           transition={{ duration: 0.2 }}
-          className={`mt-0.5 w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-semibold tabular-nums transition-all ${
+          className={`mt-0.5 w-7 h-7 rounded-full shrink-0 select-none flex items-center justify-center text-xs font-semibold tabular-nums transition-all ${
             isCompleted
               ? "bg-primary text-primary-foreground border border-primary"
               : "bg-foreground text-background border border-foreground"
@@ -133,10 +139,38 @@ export default function InstructionStep({
         </motion.div>
 
         <div className="flex-1 min-w-0 space-y-3">
-          {isParallel && (
-            <span className="inline-block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              In Parallel
-            </span>
+          {(isParallel || scheduledTiming) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {scheduledTiming && (
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[11px] font-mono font-medium tabular-nums transition-colors ${
+                    isCompleted
+                      ? "border-border/60 bg-secondary/40 text-muted-foreground/60 line-through"
+                      : scheduledTiming.isNextUp
+                      ? "border-primary/40 bg-primary/15 text-primary-dark dark:text-primary font-semibold"
+                      : "border-border bg-card text-foreground"
+                  }`}
+                >
+                  <Clock className="w-3 h-3 shrink-0 opacity-75" />
+                  <span>
+                    {scheduledTiming.isServeStep
+                      ? `Ready · ${scheduledTiming.dayPrefix ? `${scheduledTiming.dayPrefix} · ` : ""}${scheduledTiming.formattedStart}`
+                      : `Start ${scheduledTiming.dayPrefix ? `${scheduledTiming.dayPrefix} · ` : ""}${scheduledTiming.formattedStart}`}
+                  </span>
+                  {scheduledTiming.durationMinutes > 0 && (
+                    <span className="opacity-65">
+                      · {scheduledTiming.isExplicit && !scheduledTiming.isOvernightEstimate ? "" : "~"}
+                      {formatDurationShort(scheduledTiming.durationMinutes)}
+                    </span>
+                  )}
+                </span>
+              )}
+              {isParallel && (
+                <span className="inline-block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  In Parallel
+                </span>
+              )}
+            </div>
           )}
           <p
             className={`text-[15px] leading-relaxed transition-colors ${
